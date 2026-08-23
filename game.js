@@ -1298,6 +1298,7 @@
     if (!ui.aboutAuthorPanel.hidden) {
       return;
     }
+    dismissInstructionsOverlay();
     state.aboutReturnMode = state.mode;
     state.mode = "about";
     keys.clear();
@@ -6209,6 +6210,7 @@
     if (!ui.instructionsPanel.hidden) {
       return;
     }
+    dismissAboutOverlay();
     state.instructionsReturnMode = state.mode;
     state.mode = "instructions";
     keys.clear();
@@ -6226,6 +6228,28 @@
     state.instructionsReturnMode = "ready";
     syncMusic();
     updateHud();
+  }
+
+  function dismissInstructionsOverlay() {
+    if (ui.instructionsPanel.hidden) {
+      return;
+    }
+    ui.instructionsPanel.hidden = true;
+    if (state.mode === "instructions") {
+      state.mode = state.instructionsReturnMode || "ready";
+    }
+    state.instructionsReturnMode = "ready";
+  }
+
+  function dismissAboutOverlay() {
+    if (ui.aboutAuthorPanel.hidden) {
+      return;
+    }
+    ui.aboutAuthorPanel.hidden = true;
+    if (state.mode === "about") {
+      state.mode = state.aboutReturnMode || "select";
+    }
+    state.aboutReturnMode = "select";
   }
 
   function roundRect(x, y, width, height, radius) {
