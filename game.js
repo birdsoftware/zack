@@ -3,6 +3,7 @@
   const ctx = canvas.getContext("2d");
 
   const ui = {
+    shell: document.getElementById("gameShell"),
     level: document.getElementById("levelValue"),
     cores: document.getElementById("coreValue"),
     lives: document.getElementById("lifeValue"),
@@ -1435,6 +1436,7 @@
 
   function updateHud() {
     const collected = level.cores.filter((core) => core.collected).length;
+    ui.shell.dataset.mode = state.mode;
     ui.level.textContent = String(state.stage + 1);
     ui.cores.textContent = `${collected}/${level.cores.length}`;
     ui.lives.textContent = String(state.lives);

@@ -2089,7 +2089,7 @@ canvas {
 }
 
 @media (pointer: coarse), (max-width: 720px) {
-  .mobile-controls {
+  .game-shell[data-mode="playing"] .mobile-controls {
     display: grid;
   }
 }
