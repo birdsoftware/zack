@@ -86,6 +86,8 @@ button:disabled:hover {
 }
 
 .topbar {
+  position: relative;
+  z-index: 6;
   display: grid;
   grid-template-areas:
     "brand pilot actions"
