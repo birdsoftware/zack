@@ -1960,6 +1960,132 @@ canvas {
   :root {
     --floating-banner-buffer: clamp(98px, 13vh, 138px);
   }
+
+  .game-shell {
+    width: 100vw;
+    gap: 8px;
+    padding: 6px 4px calc(16px + env(safe-area-inset-bottom) + var(--floating-banner-buffer));
+  }
+
+  .topbar {
+    grid-template-areas:
+      "brand pilot"
+      "stats stats"
+      "actions actions";
+    grid-template-columns: minmax(0, 1fr) minmax(118px, 0.78fr);
+    gap: 7px;
+    padding: 7px;
+  }
+
+  .brand {
+    gap: 8px;
+  }
+
+  .brand-mark {
+    width: 30px;
+    height: 30px;
+  }
+
+  .brand-title {
+    font-size: 1rem;
+  }
+
+  .brand-subtitle {
+    font-size: 0.7rem;
+  }
+
+  .pilot-hud {
+    align-self: stretch;
+    justify-self: stretch;
+    width: auto;
+    gap: 6px;
+    padding: 5px 6px;
+  }
+
+  .pilot-mini-avatar {
+    width: 30px;
+    height: 30px;
+  }
+
+  .pilot-hud-copy strong {
+    font-size: 0.73rem;
+  }
+
+  .pilot-hud-copy span {
+    font-size: 0.58rem;
+  }
+
+  .rescued-friend-strip {
+    gap: 2px;
+  }
+
+  .friend-token {
+    width: 17px;
+    height: 17px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    width: 100%;
+  }
+
+  .stat,
+  .stat.wide {
+    min-width: 0;
+    padding: 4px 3px;
+    border-radius: 6px;
+  }
+
+  .stat strong {
+    font-size: 0.82rem;
+  }
+
+  .stat span {
+    margin-top: 1px;
+    font-size: 0.52rem;
+  }
+
+  .actions {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .actions button {
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding-inline: 9px;
+    font-size: 0.72rem;
+  }
+
+  canvas {
+    border-radius: 6px;
+  }
+
+  .mobile-controls {
+    gap: 8px;
+    padding-bottom: 4px;
+  }
+
+  .dpad {
+    width: 128px;
+    height: 128px;
+    gap: 5px;
+  }
+
+  .shoot-button,
+  .boost-button {
+    height: 66px;
+  }
 }
 
 @media (pointer: coarse), (max-width: 720px) {
@@ -1969,22 +2095,41 @@ canvas {
 }
 
 @media (max-width: 520px) {
+  .game-shell {
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+
+  .topbar {
+    grid-template-columns: minmax(0, 1fr) minmax(104px, 0.7fr);
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  .pilot-hud-copy span {
+    display: none;
+  }
+
   .mobile-controls {
-    grid-template-columns: auto minmax(72px, 96px) minmax(72px, 96px);
+    grid-template-columns: auto minmax(66px, 88px) minmax(66px, 88px);
   }
 
   .dpad {
-    width: 132px;
-    height: 132px;
+    width: 118px;
+    height: 118px;
   }
 
   .pilot-hud {
-    padding: 6px 8px;
+    padding: 4px 5px;
   }
 
   .pilot-mini-avatar {
-    width: 34px;
-    height: 34px;
+    width: 28px;
+    height: 28px;
   }
 
   .pilot-panel {
@@ -2154,19 +2299,8 @@ canvas {
     min-height: 0;
   }
 
-  .stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    width: 100%;
-  }
-
-  .stat,
-  .stat.wide {
-    min-width: 0;
-  }
-
   .brand-mark {
-    width: 34px;
-    height: 34px;
+    width: 28px;
+    height: 28px;
   }
 }
