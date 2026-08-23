@@ -10,6 +10,7 @@
   --green: #79f28e;
   --red: #ff5f59;
   --deep: #06070b;
+  --floating-banner-buffer: clamp(82px, 9vh, 112px);
 }
 
 * {
@@ -76,8 +77,9 @@ button:disabled:hover {
 .game-shell {
   width: min(1180px, calc(100vw - 24px));
   min-height: 100%;
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: 14px 0 20px;
+  padding: 14px 0 calc(20px + env(safe-area-inset-bottom) + var(--floating-banner-buffer));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 12px;
@@ -258,7 +260,7 @@ button:disabled:hover {
 canvas {
   display: block;
   width: 100%;
-  max-height: calc(100vh - 150px);
+  max-height: calc(100vh - 150px - var(--floating-banner-buffer));
   aspect-ratio: 3 / 2;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
@@ -1833,7 +1835,7 @@ canvas {
   justify-content: center;
   align-items: center;
   gap: 12px;
-  padding: 0 0 env(safe-area-inset-bottom);
+  padding: 0 0 8px;
   touch-action: none;
 }
 
@@ -1892,6 +1894,7 @@ canvas {
   .game-shell {
     width: min(100vw - 16px, 760px);
     padding-top: 8px;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom) + var(--floating-banner-buffer));
   }
 
   .topbar {
@@ -1950,6 +1953,12 @@ canvas {
 
   canvas {
     max-height: none;
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --floating-banner-buffer: clamp(98px, 13vh, 138px);
   }
 }
 
