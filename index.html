@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Star Maze Dodger</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div class="brand-copy">
+            <button id="aboutAuthorBtn" class="about-title-button" type="button" aria-label="About Zack and Star Maze Dodger">
+              <span class="brand-title-row">
+                <span class="brand-title" role="heading" aria-level="1">Star Maze Dodger</span>
+                <span class="brand-info-icon" aria-hidden="true">i</span>
+              </span>
+              <span class="brand-subtitle">Zack's reactor-core rescue run</span>
+            </button>
+          </div>
+        </div>
+
+        <button id="pilotHud" class="pilot-hud" type="button" aria-label="Open rescue map" hidden>
+          <span id="pilotMiniAvatar" class="pilot-mini-avatar"></span>
+          <span class="pilot-hud-copy">
+            <strong id="pilotNameValue">No pilot</strong>
+            <span id="pilotRankValue">Choose pilot</span>
+          </span>
+          <span id="rescuedFriendStrip" class="rescued-friend-strip" aria-label="Rescued friends"></span>
+        </button>
+
+        <div class="stats" aria-live="polite">
+          <div class="stat">
+            <strong id="levelValue">1</strong>
+            <span>Level</span>
+          </div>
+          <div class="stat">
+            <strong id="coreValue">0/0</strong>
+            <span>Cores</span>
+          </div>
+          <div class="stat">
+            <strong id="lifeValue">3</strong>
+            <span>Lives</span>
+          </div>
+          <div class="stat wide">
+            <strong id="scoreValue">0</strong>
+            <span>Score</span>
+          </div>
+          <div class="stat wide">
+            <strong id="bestValue">0</strong>
+            <span>Best</span>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="startBtn" type="button">Launch</button>
+          <button id="pauseBtn" type="button" aria-pressed="false">Pause</button>
+          <button id="instructionsBtn" type="button">Instructions</button>
+          <button id="resetBtn" type="button">Reset</button>
+          <button id="soundBtn" type="button" aria-pressed="false">Sound</button>
+        </div>
+      </header>
+
+      <section class="stage" aria-label="Star Maze Dodger game">
+        <canvas id="gameCanvas" width="960" height="640"></canvas>
+        <div id="pilotPanel" class="pilot-panel" role="dialog" aria-modal="true" aria-labelledby="pilotTitle" hidden>
+          <div class="pilot-card">
+            <span class="pilot-kicker">Alien pilot select</span>
+            <h2 id="pilotTitle">Choose Your Commander</h2>
+            <p>Pick one alien type. Each pilot starts with a different perk and earns character upgrades after beating levels.</p>
+            <div id="pilotChoices" class="pilot-choices"></div>
+          </div>
+        </div>
+        <div id="upgradePanel" class="upgrade-panel" hidden>
+          <div class="upgrade-card">
+            <span id="upgradeKicker" class="upgrade-kicker">Core upgrade</span>
+            <h2 id="upgradeTitle">Choose one</h2>
+            <p id="upgradeText">Pick a ship improvement, then keep flying.</p>
+            <div id="upgradeChoices" class="upgrade-choices"></div>
+          </div>
+        </div>
+        <div id="shipPickerPanel" class="ship-picker-panel" role="dialog" aria-modal="true" aria-labelledby="shipPickerTitle" hidden>
+          <div class="ship-picker-card">
+            <div class="ship-picker-head">
+              <div>
+                <span class="ship-picker-kicker">Ship avatar</span>
+                <h2 id="shipPickerTitle">Choose Your Ship</h2>
+              </div>
+              <button id="closeShipPickerBtn" class="close-ship-picker" type="button" aria-label="Close ship picker">Close</button>
+            </div>
+            <p>Pick a cool ship shape. Your colors and upgrades stay the same.</p>
+            <div id="shipChoices" class="ship-choices"></div>
+          </div>
+        </div>
+        <div id="rescueMapPanel" class="rescue-map-panel" role="dialog" aria-modal="true" aria-labelledby="rescueMapTitle" hidden>
+          <div class="rescue-map-card">
+            <div class="rescue-map-head">
+              <div>
+                <span class="rescue-map-kicker">Puzzle map</span>
+                <h2 id="rescueMapTitle">Rescue Location</h2>
+              </div>
+              <button id="closeRescueMapBtn" class="close-rescue-map" type="button" aria-label="Close rescue map">Close</button>
+            </div>
+            <canvas id="rescueMapCanvas" width="760" height="460"></canvas>
+            <div class="rescue-map-footer">
+              <div class="rescue-map-copy">
+                <p id="rescueMapHint">Beat levels to find out where to rescue your friend.</p>
+                <strong id="rescueProgressValue">0/5 pieces found</strong>
+              </div>
+              <div class="rescue-archive-controls" aria-label="Puzzle memories">
+                <button id="shareMapBtn" class="share-map-button" type="button" hidden>Share</button>
+                <button id="currentPuzzleBtn" class="map-memory-button active" type="button">Current</button>
+                <div id="rescueMemoryButtons" class="memory-buttons"></div>
+              </div>
+            </div>
+            <p id="shareMapStatus" class="share-map-status" aria-live="polite"></p>
+          </div>
+        </div>
+        <div id="instructionsPanel" class="instructions-panel" role="dialog" aria-modal="true" aria-labelledby="instructionsTitle" hidden>
+          <div class="instructions-card">
+            <div class="instructions-head">
+              <div>
+                <span class="instructions-kicker">Flight manual</span>
+                <h2 id="instructionsTitle">How to Play</h2>
+              </div>
+              <button id="closeInstructionsBtn" class="close-instructions" type="button" aria-label="Close instructions">Close</button>
+            </div>
+
+            <div class="instructions-grid">
+              <section>
+                <h3>Mission</h3>
+                <p>Choose an alien race, collect every reactor core, then fly into the glowing warp gate. Every 5 levels rescues a friend.</p>
+              </section>
+              <section>
+                <h3>Pilots</h3>
+                <p>Pick one of three alien commanders at the start. Click the avatar in the top bar any time to inspect the puzzle map.</p>
+              </section>
+              <section>
+                <h3>Controls</h3>
+                <ul>
+                  <li>Move with arrow keys or WASD.</li>
+                  <li>Press Space to shoot.</li>
+                  <li>Hold Shift to boost, or keep holding a direction for auto boost.</li>
+                  <li>Press P to pause, R to reset, and M to mute.</li>
+                </ul>
+              </section>
+              <section>
+                <h3>Blaster</h3>
+                <p>Shots can destroy sentries and break most interior maze walls. Ancient blocks never break, crystal blocks take 5-7 hits, and some broken blocks leave sticky glue, rare black holes, or repair bots that patch two nearby blocks.</p>
+              </section>
+              <section>
+                <h3>Upgrades</h3>
+                <p>Each reactor core gives two ship upgrades. Beating a level gives two pilot upgrades for your main character.</p>
+              </section>
+              <section>
+                <h3>Puzzle Map</h3>
+                <p>Every beaten level reveals one map piece on a new planet map. Rescue 5 friends per race, for 75 total missions, and use numbered memory buttons to revisit completed puzzles.</p>
+              </section>
+              <section>
+                <h3>Bosses</h3>
+                <p>After each full puzzle, the next rescue adds a colored boss type with its own shape and movement. Some fire homing rockets, and worm bosses lash through maze paths with long arms.</p>
+              </section>
+              <section>
+                <h3>Survival</h3>
+                <p>You start with 5 lives. If a sentry hits your ship, you respawn at the level start with a short shield.</p>
+              </section>
+              <section>
+                <h3>Sound</h3>
+                <p>Launch starts the background song. The Sound button turns music and effects on or off.</p>
+              </section>
+            </div>
+          </div>
+        </div>
+        <div id="aboutAuthorPanel" class="about-author-panel" role="dialog" aria-modal="true" aria-labelledby="aboutAuthorTitle" hidden>
+          <div class="about-author-card">
+            <div class="about-author-head">
+              <div>
+                <span class="about-author-kicker">About the author</span>
+                <h2 id="aboutAuthorTitle">Hi, I'm Zack.</h2>
+              </div>
+              <button id="closeAboutAuthorBtn" class="close-about-author" type="button" aria-label="Close about Zack">Close</button>
+            </div>
+
+            <div class="about-author-layout">
+              <div class="zack-maker-avatar" role="img" aria-label="Privacy-safe cartoon space maker avatar">
+                <span class="maker-star star-one"></span>
+                <span class="maker-star star-two"></span>
+                <span class="maker-helmet"></span>
+                <span class="maker-visor"></span>
+                <span class="maker-body"></span>
+                <span class="maker-laptop"></span>
+                <span class="maker-code-line line-one"></span>
+                <span class="maker-code-line line-two"></span>
+                <span class="maker-rocket"></span>
+                <span class="maker-spark spark-one"></span>
+                <span class="maker-spark spark-two"></span>
+              </div>
+
+              <div class="about-author-copy">
+                <p>I'm in elementary school. I love technology, programming, making things, and learning new things.</p>
+                <p>My dad and brother are software engineers, and my mom and family are teachers, so I get to learn from builders and teachers every day.</p>
+                <p>I made this game using Codex AI. If you like Star Maze Dodger, share it with your friends. I can't wait to work on my next game.</p>
+
+                <div class="about-counter-grid" aria-label="Local game counters">
+                  <div class="about-counter">
+                    <strong id="aboutVisitValue">0</strong>
+                    <span>visits on this browser</span>
+                  </div>
+                  <div class="about-counter">
+                    <strong id="aboutPlayValue">0</strong>
+                    <span>launches on this browser</span>
+                  </div>
+                </div>
+
+                <p id="aboutCounterNote" class="about-counter-note">Goal: 3,000 real players after launch. Thanks guys! This inspires me to make more games.</p>
+                <p class="about-privacy-note">This picture is a privacy-safe space-maker avatar, not a real photo. No school, location, or personal details are shared.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mobile-controls" aria-label="Touch controls">
+        <div class="dpad">
+          <button type="button" data-touch="up" aria-label="Up">▲</button>
+          <button type="button" data-touch="left" aria-label="Left">◀</button>
+          <button type="button" data-touch="down" aria-label="Down">▼</button>
+          <button type="button" data-touch="right" aria-label="Right">▶</button>
+        </div>
+        <button class="shoot-button" type="button" data-touch="shoot">Shoot</button>
+        <button class="boost-button" type="button" data-touch="boost">Boost</button>
+      </section>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>
