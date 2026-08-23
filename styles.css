@@ -1326,6 +1326,10 @@ canvas {
   min-height: 36px;
 }
 
+.close-about-author-bottom {
+  display: none;
+}
+
 .about-author-layout {
   display: grid;
   grid-template-columns: minmax(210px, 0.75fr) minmax(0, 1.25fr);
@@ -2231,7 +2235,9 @@ canvas {
 
   .about-author-card {
     max-height: calc(100vh - 160px);
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .instructions-head {
@@ -2242,8 +2248,27 @@ canvas {
     align-items: center;
   }
 
+  .about-author-head .close-about-author {
+    display: none;
+  }
+
   .about-author-layout {
     grid-template-columns: 1fr;
+    min-height: 0;
+    overflow: auto;
+    padding-right: 2px;
+  }
+
+  .close-about-author-bottom {
+    flex: 0 0 auto;
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    margin-top: 12px;
+    border-color: rgba(121, 242, 142, 0.48);
+    background:
+      radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.28), transparent 28%),
+      linear-gradient(135deg, rgba(121, 242, 142, 0.24), rgba(73, 224, 255, 0.18));
   }
 
   .zack-maker-avatar {

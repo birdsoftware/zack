@@ -43,6 +43,7 @@
     closeInstructions: document.getElementById("closeInstructionsBtn"),
     aboutAuthorPanel: document.getElementById("aboutAuthorPanel"),
     closeAboutAuthor: document.getElementById("closeAboutAuthorBtn"),
+    closeAboutAuthorBottom: document.getElementById("closeAboutAuthorBottomBtn"),
     aboutVisitValue: document.getElementById("aboutVisitValue"),
     aboutPlayValue: document.getElementById("aboutPlayValue"),
     aboutCounterNote: document.getElementById("aboutCounterNote"),
@@ -6683,6 +6684,7 @@
   });
   ui.closeRescueMap.addEventListener("click", closeRescueMap);
   ui.closeAboutAuthor.addEventListener("click", closeAboutAuthor);
+  ui.closeAboutAuthorBottom.addEventListener("click", closeAboutAuthor);
   ui.closeShipPicker.addEventListener("click", closeShipPicker);
   ui.shareMap.addEventListener("click", shareFinishedMap);
   ui.currentPuzzle.addEventListener("click", () => setMapView("current"));
