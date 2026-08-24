@@ -87,7 +87,7 @@ button:disabled:hover {
 
 .topbar {
   position: relative;
-  z-index: 6;
+  z-index: 4;
   display: grid;
   grid-template-areas:
     "brand pilot actions"
@@ -101,6 +101,10 @@ button:disabled:hover {
   border-radius: 8px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(16px);
+}
+
+.game-shell[data-mode="select"] .topbar {
+  z-index: 6;
 }
 
 .brand {
