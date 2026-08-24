@@ -4,6 +4,7 @@
 
   const ui = {
     shell: document.getElementById("gameShell"),
+    topbar: document.getElementById("gameTopbar"),
     level: document.getElementById("levelValue"),
     cores: document.getElementById("coreValue"),
     lives: document.getElementById("lifeValue"),
@@ -1443,6 +1444,7 @@
 
   function updateHud() {
     const collected = level.cores.filter((core) => core.collected).length;
+    syncLayoutMetrics();
     ui.shell.dataset.mode = state.mode;
     if (state.mode !== "playing") {
       clearTouchMoveTarget();
@@ -1456,6 +1458,14 @@
     ui.start.disabled = state.mode === "playing" || state.mode === "paused";
     ui.pause.setAttribute("aria-pressed", String(state.mode === "paused"));
     ui.pause.textContent = state.mode === "paused" ? "Resume" : "Pause";
+  }
+
+  function syncLayoutMetrics() {
+    const rect = ui.topbar?.getBoundingClientRect?.();
+    if (!rect) {
+      return;
+    }
+    ui.shell.style.setProperty?.("--mobile-topbar-bottom", `${Math.ceil(rect.bottom + 8)}px`);
   }
 
   function update(dt) {
@@ -6727,6 +6737,7 @@
       updateHud();
     }
   });
+  window.addEventListener("resize", syncLayoutMetrics);
 
   ui.start.addEventListener("click", startOrResume);
   ui.aboutAuthor.addEventListener("click", openAboutAuthor);

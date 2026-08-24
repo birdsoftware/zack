@@ -2366,3 +2366,122 @@ canvas {
     height: 28px;
   }
 }
+
+@media (max-width: 720px) {
+  .game-shell {
+    --mobile-panel-bottom: calc(var(--floating-banner-buffer) + env(safe-area-inset-bottom) + 72px);
+  }
+
+  .pilot-panel,
+  .upgrade-panel,
+  .ship-picker-panel,
+  .rescue-map-panel,
+  .instructions-panel,
+  .about-author-panel {
+    position: fixed;
+    inset: var(--mobile-topbar-bottom, 148px) 6px var(--mobile-panel-bottom) 6px;
+    z-index: 8;
+    place-items: stretch;
+    align-items: stretch;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .pilot-card,
+  .upgrade-card,
+  .ship-picker-card,
+  .rescue-map-card,
+  .instructions-card,
+  .about-author-card {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    min-height: 0;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .pilot-card h2,
+  .upgrade-card h2,
+  .ship-picker-card h2,
+  .rescue-map-card h2,
+  .instructions-card h2,
+  .about-author-card h2 {
+    font-size: 1.2rem;
+  }
+
+  .pilot-card p,
+  .upgrade-card p,
+  .ship-picker-card p,
+  .rescue-map-card p,
+  .instructions-card p,
+  .about-author-card p {
+    font-size: 0.86rem;
+    margin-bottom: 10px;
+  }
+
+  .pilot-choices,
+  .upgrade-choices,
+  .ship-choices,
+  .instructions-grid,
+  .about-author-layout {
+    min-height: 0;
+    overflow: auto;
+    padding-right: 3px;
+  }
+
+  .pilot-choices,
+  .upgrade-choices {
+    grid-template-columns: 1fr;
+  }
+
+  .pilot-choice {
+    min-height: 132px;
+    grid-template-columns: 88px minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr auto;
+    column-gap: 12px;
+    padding: 12px;
+  }
+
+  .pilot-choice .alien-avatar {
+    grid-row: 1 / span 4;
+    width: 82px;
+    height: 86px;
+    align-self: center;
+    margin: 0;
+  }
+
+  .pilot-choice > strong,
+  .pilot-choice > em,
+  .pilot-choice > span:not(.alien-avatar),
+  .pilot-choice .pilot-key {
+    grid-column: 2;
+  }
+
+  .rescue-map-head,
+  .ship-picker-head,
+  .instructions-head,
+  .about-author-head {
+    flex: 0 0 auto;
+    margin-bottom: 10px;
+  }
+
+  #rescueMapCanvas {
+    flex: 0 1 auto;
+    max-height: min(34vh, 260px);
+  }
+
+  .rescue-map-footer {
+    flex: 0 0 auto;
+  }
+
+  .rescue-archive-controls {
+    flex-wrap: wrap;
+  }
+
+  .ship-choices {
+    grid-template-columns: 1fr;
+  }
+}
