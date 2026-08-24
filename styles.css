@@ -2089,19 +2089,48 @@ canvas {
 
   .mobile-controls {
     position: fixed;
+    left: 14px;
     right: 14px;
     bottom: calc(var(--floating-banner-buffer) + env(safe-area-inset-bottom) + 14px);
     z-index: 9;
-    grid-template-columns: 78px;
+    grid-template-columns: 78px 78px;
+    justify-content: space-between;
     width: auto;
     gap: 0;
     padding: 0;
     pointer-events: none;
   }
 
-  .mobile-controls .dpad,
   .mobile-controls .boost-button {
     display: none;
+  }
+
+  .mobile-controls .dpad {
+    width: 78px;
+    height: 78px;
+    display: grid;
+    gap: 3px;
+    padding: 4px;
+    border: 1px solid rgba(73, 224, 255, 0.42);
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(73, 224, 255, 0.16), transparent 52%),
+      rgba(5, 7, 11, 0.76);
+    box-shadow: 0 0 24px rgba(73, 224, 255, 0.24), 0 16px 34px rgba(0, 0, 0, 0.42);
+    pointer-events: auto;
+  }
+
+  .mobile-controls .dpad button {
+    min-height: 0;
+    border-radius: 50%;
+    border-color: rgba(244, 247, 251, 0.18);
+    background:
+      radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.28), transparent 32%),
+      rgba(73, 224, 255, 0.17);
+    color: var(--ink);
+    font-size: 0.72rem;
+    line-height: 1;
+    pointer-events: auto;
   }
 
   .shoot-button {
@@ -2154,9 +2183,16 @@ canvas {
   }
 
   .mobile-controls {
+    left: 10px;
     right: 10px;
     bottom: calc(var(--floating-banner-buffer) + env(safe-area-inset-bottom) + 10px);
-    grid-template-columns: 72px;
+    grid-template-columns: 72px 72px;
+  }
+
+  .mobile-controls .dpad {
+    width: 72px;
+    height: 72px;
+    padding: 4px;
   }
 
   .shoot-button {
