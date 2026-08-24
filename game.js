@@ -43,12 +43,21 @@
     instructionsPanel: document.getElementById("instructionsPanel"),
     closeInstructions: document.getElementById("closeInstructionsBtn"),
     closeInstructionsBottom: document.getElementById("closeInstructionsBottomBtn"),
+    audioPanel: document.getElementById("audioPanel"),
+    closeAudio: document.getElementById("closeAudioBtn"),
+    musicVolume: document.getElementById("musicVolumeSlider"),
+    musicVolumeValue: document.getElementById("musicVolumeValue"),
+    sfxVolume: document.getElementById("sfxVolumeSlider"),
+    sfxVolumeValue: document.getElementById("sfxVolumeValue"),
+    muteAudio: document.getElementById("muteAudioBtn"),
     aboutAuthorPanel: document.getElementById("aboutAuthorPanel"),
     closeAboutAuthor: document.getElementById("closeAboutAuthorBtn"),
     closeAboutAuthorBottom: document.getElementById("closeAboutAuthorBottomBtn"),
     aboutVisitValue: document.getElementById("aboutVisitValue"),
     aboutPlayValue: document.getElementById("aboutPlayValue"),
     aboutCounterNote: document.getElementById("aboutCounterNote"),
+    moveStick: document.getElementById("moveStick"),
+    moveStickKnob: document.getElementById("moveStickKnob"),
   };
 
   const WIDTH = 960;
@@ -96,6 +105,9 @@
   const CAMPAIGN_KEY = "star-maze-dodger-campaign";
   const VISIT_KEY = "star-maze-dodger-visits";
   const PLAY_KEY = "star-maze-dodger-plays";
+  const MUTED_KEY = "star-maze-dodger-muted";
+  const MUSIC_VOLUME_KEY = "star-maze-dodger-music-volume";
+  const SFX_VOLUME_KEY = "star-maze-dodger-sfx-volume";
   const SHARE_TEXT = "Try Zack's really cool game. Zack's reactor-core rescue run!";
   const PUZZLE_VERTICAL_EDGES = [
     { center: 0.29, width: 0.17, depth: 31, dir: 1, wobble: 4.5, wave: 3.2 },
@@ -104,6 +116,13 @@
     { center: 0.66, width: 0.18, depth: 29, dir: 1, wobble: 4, wave: 2.8 },
   ];
   const keys = new Set();
+  const mobileStick = {
+    active: false,
+    pointerId: null,
+    x: 0,
+    y: 0,
+    strength: 0,
+  };
   const state = {
     mode: "select",
     stage: 0,
@@ -113,7 +132,9 @@
     elapsed: 0,
     levelTime: 0,
     cameraShake: 0,
-    muted: false,
+    muted: readStoredFlag(MUTED_KEY, false),
+    musicVolume: readStoredVolume(MUSIC_VOLUME_KEY, 0.72),
+    sfxVolume: readStoredVolume(SFX_VOLUME_KEY, 0.82),
     messageTimer: 0,
     toast: "",
     loadout: makeBaseLoadout(),
@@ -134,6 +155,7 @@
     mapReturnMode: "select",
     mapFollowup: "none",
     instructionsReturnMode: "ready",
+    audioReturnMode: "ready",
     aboutReturnMode: "select",
     shipPickerReturnMode: "playing",
     shipAvatar: "dart",
@@ -692,6 +714,34 @@
     }
   }
 
+  function readStoredFlag(key, fallback) {
+    try {
+      const value = localStorage.getItem(key);
+      return value == null ? fallback : value === "true";
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function readStoredVolume(key, fallback) {
+    try {
+      const value = Number(localStorage.getItem(key));
+      return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function saveAudioSettings() {
+    try {
+      localStorage.setItem(MUTED_KEY, String(state.muted));
+      localStorage.setItem(MUSIC_VOLUME_KEY, String(state.musicVolume));
+      localStorage.setItem(SFX_VOLUME_KEY, String(state.sfxVolume));
+    } catch (error) {
+      // Audio settings are nice-to-have; the mixer still works for this session.
+    }
+  }
+
   function formatCounter(value) {
     return String(Math.max(0, Number(value) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   }
@@ -831,6 +881,7 @@
     state.mapReturnMode = "select";
     state.mapFollowup = "none";
     state.instructionsReturnMode = "select";
+    state.audioReturnMode = "select";
     state.aboutReturnMode = "select";
     state.shipPickerReturnMode = "playing";
     state.shipAvatar = "dart";
@@ -841,6 +892,7 @@
     hideUpgradePanel();
     ui.rescueMapPanel.hidden = true;
     ui.instructionsPanel.hidden = true;
+    ui.audioPanel.hidden = true;
     ui.aboutAuthorPanel.hidden = true;
     ui.shipPickerPanel.hidden = true;
     ui.shareMap.hidden = true;
@@ -1336,6 +1388,10 @@
       closeInstructions();
       return;
     }
+    if (state.mode === "audio") {
+      closeAudioSettings();
+      return;
+    }
     if (state.mode === "map") {
       closeRescueMap();
       return;
@@ -1369,10 +1425,11 @@
     updateHud();
   }
 
-  function toggleSound() {
+  function toggleMute() {
     state.muted = !state.muted;
-    ui.sound.setAttribute("aria-pressed", String(state.muted));
-    ui.sound.textContent = state.muted ? "Muted" : "Sound";
+    saveAudioSettings();
+    updateAudioControls();
+    applyAudioMix();
     if (state.muted) {
       stopMusic();
       return;
@@ -1381,6 +1438,65 @@
       ping("start");
       syncMusic();
     }
+  }
+
+  function openAudioSettings() {
+    if (!ui.audioPanel.hidden) {
+      return;
+    }
+    dismissAboutOverlay();
+    state.audioReturnMode = state.mode;
+    state.mode = "audio";
+    keys.clear();
+    clearMobileStick();
+    ui.audioPanel.hidden = false;
+    updateAudioControls();
+    syncMusic();
+    updateHud();
+  }
+
+  function closeAudioSettings() {
+    if (ui.audioPanel.hidden) {
+      return;
+    }
+    ui.audioPanel.hidden = true;
+    state.mode = state.audioReturnMode || "ready";
+    state.audioReturnMode = "ready";
+    syncMusic();
+    updateHud();
+  }
+
+  function setAudioVolume(kind, value) {
+    const volume = Math.max(0, Math.min(1, Number(value) / 100));
+    if (kind === "music") {
+      state.musicVolume = volume;
+    } else {
+      state.sfxVolume = volume;
+    }
+    saveAudioSettings();
+    updateAudioControls();
+    applyAudioMix();
+  }
+
+  function updateAudioControls() {
+    ui.sound.setAttribute("aria-pressed", String(state.muted));
+    ui.sound.textContent = state.muted ? "Muted" : "Audio";
+    ui.musicVolume.value = String(Math.round(state.musicVolume * 100));
+    ui.sfxVolume.value = String(Math.round(state.sfxVolume * 100));
+    ui.musicVolumeValue.textContent = `${Math.round(state.musicVolume * 100)}%`;
+    ui.sfxVolumeValue.textContent = `${Math.round(state.sfxVolume * 100)}%`;
+    ui.muteAudio.setAttribute("aria-pressed", String(state.muted));
+    ui.muteAudio.textContent = state.muted ? "Unmute all" : "Mute all";
+  }
+
+  function applyAudioMix() {
+    if (!audioContext || !masterGain || !sfxGain || !musicGain) {
+      return;
+    }
+    const now = audioContext.currentTime;
+    masterGain.gain.setTargetAtTime(state.muted ? 0.0001 : 0.86, now, 0.025);
+    sfxGain.gain.setTargetAtTime(0.95 * state.sfxVolume, now, 0.02);
+    musicGain.gain.setTargetAtTime(0.12 * state.musicVolume, now, 0.04);
   }
 
   function openShipPicker() {
@@ -1443,13 +1559,14 @@
     ui.shell.dataset.mode = state.mode;
     if (state.mode !== "playing") {
       ["up", "right", "down", "left", "boost", "shoot"].forEach((key) => keys.delete(key));
+      clearMobileStick();
     }
     ui.level.textContent = String(state.stage + 1);
     ui.cores.textContent = `${collected}/${level.cores.length}`;
     ui.lives.textContent = String(state.lives);
     ui.score.textContent = String(state.score);
     ui.best.textContent = String(state.best);
-    ui.start.textContent = state.mode === "instructions" || state.mode === "map" || state.mode === "about" || state.mode === "shipPicker" ? "Close" : state.mode === "select" ? "Choose" : state.mode === "paused" ? "Paused" : state.mode === "playing" ? "Flying" : state.mode === "gameover" || state.mode === "won" ? "New Pilot" : "Launch";
+    ui.start.textContent = state.mode === "instructions" || state.mode === "audio" || state.mode === "map" || state.mode === "about" || state.mode === "shipPicker" ? "Close" : state.mode === "select" ? "Choose" : state.mode === "paused" ? "Paused" : state.mode === "playing" ? "Flying" : state.mode === "gameover" || state.mode === "won" ? "New Pilot" : "Launch";
     ui.start.disabled = state.mode === "playing" || state.mode === "paused";
     ui.pause.setAttribute("aria-pressed", String(state.mode === "paused"));
     ui.pause.textContent = state.mode === "paused" ? "Resume" : "Pause";
@@ -1975,6 +2092,10 @@
     const down = keys.has("down") ? 1 : 0;
     let dx = right - left;
     let dy = down - up;
+    if (mobileStick.active && mobileStick.strength > 0) {
+      dx += mobileStick.x;
+      dy += mobileStick.y;
+    }
     const length = Math.hypot(dx, dy) || 1;
     dx /= length;
     dy /= length;
@@ -3142,6 +3263,7 @@
     drawPlayer(time);
     drawFriendCheers(time);
     drawEnergy();
+    drawPostProcessing(time);
     drawOverlay(time);
     ctx.restore();
   }
@@ -4685,6 +4807,88 @@
     ctx.fillStyle = "rgba(244,247,251,0.7)";
     ctx.font = "700 12px system-ui, sans-serif";
     ctx.fillText(`SHIFT OR HOLD MOVE BOOST   SPACE BLASTER ${player.reload <= 0 ? "READY" : "CHARGING"}`, x, y - 8);
+    ctx.restore();
+  }
+
+  function drawPostProcessing(time) {
+    ctx.save();
+    drawChromaticEdgeGlow(time);
+    drawVignette();
+    drawScanlines(time);
+    drawFilmGrain(time);
+    ctx.restore();
+  }
+
+  function drawChromaticEdgeGlow(time) {
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = 0.34;
+    let glow = ctx.createRadialGradient(WIDTH * 0.12, HEIGHT * 0.08, 10, WIDTH * 0.12, HEIGHT * 0.08, WIDTH * 0.58);
+    glow.addColorStop(0, "rgba(73, 224, 255, 0.2)");
+    glow.addColorStop(0.42, "rgba(73, 224, 255, 0.07)");
+    glow.addColorStop(1, "rgba(73, 224, 255, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    glow = ctx.createRadialGradient(WIDTH * 0.9, HEIGHT * 0.88, 20, WIDTH * 0.9, HEIGHT * 0.88, WIDTH * 0.64);
+    glow.addColorStop(0, "rgba(255, 90, 167, 0.18)");
+    glow.addColorStop(0.48, "rgba(255, 202, 79, 0.06)");
+    glow.addColorStop(1, "rgba(255, 90, 167, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    ctx.globalAlpha = 0.1 + Math.sin(time * 0.0018) * 0.025;
+    ctx.strokeStyle = "rgba(73, 224, 255, 0.9)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(ORIGIN_X - 2, ORIGIN_Y - 2, COLS * CELL + 4, ROWS * CELL + 4);
+    ctx.restore();
+  }
+
+  function drawVignette() {
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    const gradient = ctx.createRadialGradient(WIDTH / 2, HEIGHT * 0.47, HEIGHT * 0.18, WIDTH / 2, HEIGHT * 0.48, WIDTH * 0.76);
+    gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
+    gradient.addColorStop(0.58, "rgba(180, 196, 224, 0.92)");
+    gradient.addColorStop(0.82, "rgba(34, 42, 58, 0.68)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    const dark = ctx.createRadialGradient(WIDTH / 2, HEIGHT * 0.48, HEIGHT * 0.36, WIDTH / 2, HEIGHT * 0.48, WIDTH * 0.74);
+    dark.addColorStop(0, "rgba(0, 0, 0, 0)");
+    dark.addColorStop(0.72, "rgba(0, 0, 0, 0.14)");
+    dark.addColorStop(1, "rgba(0, 0, 0, 0.72)");
+    ctx.fillStyle = dark;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.restore();
+  }
+
+  function drawScanlines(time) {
+    ctx.save();
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = "rgba(244, 247, 251, 0.72)";
+    const offset = Math.floor(time * 0.02) % 4;
+    for (let y = offset; y < HEIGHT; y += 4) {
+      ctx.fillRect(0, y, WIDTH, 1);
+    }
+    ctx.restore();
+  }
+
+  function drawFilmGrain(time) {
+    ctx.save();
+    ctx.globalCompositeOperation = "overlay";
+    for (let i = 0; i < 90; i += 1) {
+      const seed = i * 17.17 + Math.floor(time * 0.036);
+      const x = hashNoise(seed) * WIDTH;
+      const y = hashNoise(seed + 8.3) * HEIGHT;
+      const alpha = 0.025 + hashNoise(seed + 2.1) * 0.035;
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.fillRect(x, y, 1.3, 1.3);
+    }
     ctx.restore();
   }
 
@@ -6319,12 +6523,13 @@
     masterGain = audioContext.createGain();
     sfxGain = audioContext.createGain();
     musicGain = audioContext.createGain();
-    masterGain.gain.value = 0.82;
-    sfxGain.gain.value = 0.78;
-    musicGain.gain.value = 0.055;
+    masterGain.gain.value = state.muted ? 0.0001 : 0.86;
+    sfxGain.gain.value = 0.95 * state.sfxVolume;
+    musicGain.gain.value = 0.12 * state.musicVolume;
     sfxGain.connect(masterGain);
     musicGain.connect(masterGain);
     masterGain.connect(audioContext.destination);
+    applyAudioMix();
   }
 
   function ping(kind) {
@@ -6461,7 +6666,7 @@
       stopMusic();
       return;
     }
-    if (state.mode === "playing" || state.mode === "upgrade" || state.mode === "map") {
+    if (state.mode === "playing" || state.mode === "upgrade" || state.mode === "map" || state.mode === "audio") {
       startMusic();
     } else {
       stopMusic();
@@ -6475,7 +6680,7 @@
     }
     musicStep = 0;
     playMusicStep();
-    musicTimer = window.setInterval(playMusicStep, 260);
+    musicTimer = window.setInterval(playMusicStep, 190);
   }
 
   function stopMusic() {
@@ -6491,22 +6696,34 @@
       return;
     }
 
-    const bass = [82, null, 98, null, 110, null, 98, null, 73, null, 98, null, 123, null, 110, null];
-    const melody = [null, 659, null, 784, null, 988, 880, null, null, 587, null, 659, null, 784, 988, null];
-    const bassNote = bass[musicStep % bass.length];
-    const melodyNote = melody[musicStep % melody.length];
+    const step = musicStep % 32;
+    const bassRoots = [73, 73, 98, 98, 110, 110, 82, 123];
+    const root = bassRoots[Math.floor(step / 4) % bassRoots.length];
+    const arps = [292, 366, 439, 586, 366, 439, 586, 732, 392, 494, 587, 784, 494, 587, 784, 988];
+    const lead = [null, null, 879, null, null, 988, null, 1175, null, null, 784, null, 659, null, 587, null, null, 988, null, 1319, null, 1175, null, 988, null, 784, null, 659, null, 587, null, 494];
+    const arpNote = arps[step % arps.length];
+    const leadNote = lead[step];
 
-    if (bassNote) {
-      playTone(bassNote, 0.22, "sawtooth", 0.18, 0, musicGain);
+    if (step % 4 === 0) {
+      playTone(root, 0.34, "sawtooth", 0.17, 0, musicGain);
+      playTone(root / 2, 0.18, "triangle", 0.16, 0.01, musicGain);
+      playNoise(0.055, 0.035, 240, 0, musicGain);
     }
-    if (melodyNote) {
-      playTone(melodyNote, 0.16, "triangle", 0.11, 0.015, musicGain);
+    if (step % 16 === 0) {
+      playTone(root * 2, 0.92, "sine", 0.032, 0, musicGain);
+      playTone(root * 2.5, 0.92, "triangle", 0.022, 0.01, musicGain);
+      playTone(root * 3, 0.92, "sine", 0.024, 0.02, musicGain);
     }
-    if (musicStep % 4 === 0) {
-      playTone(247, 0.42, "sine", 0.07, 0.02, musicGain);
+    playTone(arpNote, 0.115, step % 2 ? "triangle" : "sine", 0.062, 0.012, musicGain);
+    if (leadNote) {
+      playTone(leadNote, 0.18, "triangle", 0.08, 0.026, musicGain);
+      playTone(leadNote * 1.005, 0.14, "sine", 0.025, 0.03, musicGain);
     }
-    if (musicStep % 2 === 0) {
-      playNoise(0.045, 0.045, 1800, 0, musicGain);
+    if (step % 2 === 0) {
+      playNoise(0.038, 0.026, 5200, 0.01, musicGain);
+    }
+    if (step % 8 === 6) {
+      playNoise(0.09, 0.032, 1200, 0, musicGain);
     }
 
     musicStep += 1;
@@ -6535,6 +6752,43 @@
       x: ((event.clientX - rect.left) / width) * canvas.width,
       y: ((event.clientY - rect.top) / height) * canvas.height,
     };
+  }
+
+  function updateMoveStick(event) {
+    const rect = ui.moveStick.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const maxDistance = Math.max(20, rect.width * 0.34);
+    let dx = event.clientX - centerX;
+    let dy = event.clientY - centerY;
+    const distance = Math.hypot(dx, dy);
+    const clamped = Math.min(distance, maxDistance);
+    if (distance > 0) {
+      dx = (dx / distance) * clamped;
+      dy = (dy / distance) * clamped;
+    }
+    const strength = clamped / maxDistance;
+    const deadZone = 0.14;
+    mobileStick.strength = strength > deadZone ? strength : 0;
+    mobileStick.x = mobileStick.strength ? dx / maxDistance : 0;
+    mobileStick.y = mobileStick.strength ? dy / maxDistance : 0;
+    moveStickKnob(dx, dy);
+  }
+
+  function moveStickKnob(dx, dy) {
+    ui.moveStickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  }
+
+  function clearMobileStick(pointerId = null) {
+    if (pointerId !== null && mobileStick.pointerId !== pointerId) {
+      return;
+    }
+    mobileStick.active = false;
+    mobileStick.pointerId = null;
+    mobileStick.x = 0;
+    mobileStick.y = 0;
+    mobileStick.strength = 0;
+    moveStickKnob(0, 0);
   }
 
   window.addEventListener("keydown", (event) => {
@@ -6579,6 +6833,19 @@
       if (event.code === "Escape" || event.code === "KeyI") {
         event.preventDefault();
         closeInstructions();
+      } else if (direction || event.code === "Space" || event.code === "Enter") {
+        event.preventDefault();
+      }
+      return;
+    }
+
+    if (state.mode === "audio") {
+      if (event.code === "Escape") {
+        event.preventDefault();
+        closeAudioSettings();
+      } else if (event.code === "KeyM") {
+        event.preventDefault();
+        toggleMute();
       } else if (direction || event.code === "Space" || event.code === "Enter") {
         event.preventDefault();
       }
@@ -6641,7 +6908,7 @@
     } else if (event.code === "KeyR") {
       resetGame();
     } else if (event.code === "KeyM") {
-      toggleSound();
+      toggleMute();
     }
   });
 
@@ -6656,6 +6923,32 @@
       keys.delete("shoot");
     }
   });
+
+  ui.moveStick.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    ui.moveStick.setPointerCapture(event.pointerId);
+    mobileStick.active = true;
+    mobileStick.pointerId = event.pointerId;
+    if (state.mode !== "playing") {
+      startOrResume();
+    }
+    updateMoveStick(event);
+  });
+
+  ui.moveStick.addEventListener("pointermove", (event) => {
+    if (!mobileStick.active || mobileStick.pointerId !== event.pointerId) {
+      return;
+    }
+    event.preventDefault();
+    updateMoveStick(event);
+  });
+
+  ui.moveStick.addEventListener("pointerup", (event) => {
+    event.preventDefault();
+    clearMobileStick(event.pointerId);
+  });
+  ui.moveStick.addEventListener("pointercancel", (event) => clearMobileStick(event.pointerId));
+  ui.moveStick.addEventListener("lostpointercapture", () => clearMobileStick());
 
   document.querySelectorAll("[data-touch]").forEach((button) => {
     const key = button.dataset.touch;
@@ -6698,6 +6991,7 @@
 
   window.addEventListener("blur", () => {
     keys.clear();
+    clearMobileStick();
     if (state.mode === "playing") {
       state.mode = "paused";
       syncMusic();
@@ -6711,7 +7005,7 @@
   ui.pause.addEventListener("click", togglePause);
   ui.instructions.addEventListener("click", openInstructions);
   ui.reset.addEventListener("click", resetGame);
-  ui.sound.addEventListener("click", toggleSound);
+  ui.sound.addEventListener("click", openAudioSettings);
   ui.pilotHud.addEventListener("click", () => {
     if (state.pilot) {
       openRescueMap("resume");
@@ -6732,6 +7026,10 @@
   });
   ui.closeInstructions.addEventListener("click", closeInstructions);
   ui.closeInstructionsBottom.addEventListener("click", closeInstructions);
+  ui.closeAudio.addEventListener("click", closeAudioSettings);
+  ui.muteAudio.addEventListener("click", toggleMute);
+  ui.musicVolume.addEventListener("input", (event) => setAudioVolume("music", event.target.value));
+  ui.sfxVolume.addEventListener("input", (event) => setAudioVolume("sfx", event.target.value));
   ui.shipChoices.addEventListener("click", (event) => {
     const button = event.target.closest("[data-ship]");
     if (!button) {
@@ -6754,6 +7052,7 @@
     chooseUpgrade(Number(button.dataset.upgrade));
   });
 
+  updateAudioControls();
   newRun("select");
   requestAnimationFrame(loop);
 })();

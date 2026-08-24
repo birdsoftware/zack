@@ -59,7 +59,7 @@
           <button id="pauseBtn" type="button" aria-pressed="false">Pause</button>
           <button id="instructionsBtn" type="button">Instructions</button>
           <button id="resetBtn" type="button">Reset</button>
-          <button id="soundBtn" type="button" aria-pressed="false">Sound</button>
+          <button id="soundBtn" type="button" aria-pressed="false">Audio</button>
         </div>
       </header>
 
@@ -141,9 +141,9 @@
                 <h3>Controls</h3>
                 <ul>
                   <li>Move with arrow keys or WASD.</li>
-                  <li>On phones, use the floating arrow buttons to steer.</li>
-                  <li>Press Space to shoot.</li>
-                  <li>On phones, use the floating Shoot button.</li>
+                  <li>On phones, drag the floating joystick to steer.</li>
+                  <li>Hold Space to shoot.</li>
+                  <li>On phones, hold the floating Shoot button.</li>
                   <li>Hold Shift to boost, or keep moving for auto boost.</li>
                   <li>Press P to pause, R to reset, and M to mute.</li>
                 </ul>
@@ -169,11 +169,39 @@
                 <p>You start with 5 lives. If a sentry hits your ship, you respawn at the level start with a short shield.</p>
               </section>
               <section>
-                <h3>Sound</h3>
-                <p>Launch starts the background song. The Sound button turns music and effects on or off.</p>
+                <h3>Audio</h3>
+                <p>Launch starts the background song. The Audio button opens music and effects sliders.</p>
               </section>
             </div>
             <button id="closeInstructionsBottomBtn" class="close-instructions-bottom" type="button" aria-label="Close instructions">Close</button>
+          </div>
+        </div>
+        <div id="audioPanel" class="audio-panel" role="dialog" aria-modal="true" aria-labelledby="audioTitle" hidden>
+          <div class="audio-card">
+            <div class="audio-head">
+              <div>
+                <span class="audio-kicker">Audio settings</span>
+                <h2 id="audioTitle">Sound Mixer</h2>
+              </div>
+              <button id="closeAudioBtn" class="close-audio" type="button" aria-label="Close audio settings">Close</button>
+            </div>
+            <div class="audio-mixer">
+              <label class="audio-slider-row" for="musicVolumeSlider">
+                <span>
+                  <strong>Music</strong>
+                  <em id="musicVolumeValue">72%</em>
+                </span>
+                <input id="musicVolumeSlider" type="range" min="0" max="100" value="72">
+              </label>
+              <label class="audio-slider-row" for="sfxVolumeSlider">
+                <span>
+                  <strong>Effects</strong>
+                  <em id="sfxVolumeValue">82%</em>
+                </span>
+                <input id="sfxVolumeSlider" type="range" min="0" max="100" value="82">
+              </label>
+              <button id="muteAudioBtn" class="audio-mute-button" type="button" aria-pressed="false">Mute all</button>
+            </div>
           </div>
         </div>
         <div id="aboutAuthorPanel" class="about-author-panel" role="dialog" aria-modal="true" aria-labelledby="aboutAuthorTitle" hidden>
@@ -227,11 +255,9 @@
       </section>
 
       <section class="mobile-controls" aria-label="Touch controls">
-        <div class="dpad">
-          <button type="button" data-touch="up" aria-label="Up">▲</button>
-          <button type="button" data-touch="left" aria-label="Left">◀</button>
-          <button type="button" data-touch="down" aria-label="Down">▼</button>
-          <button type="button" data-touch="right" aria-label="Right">▶</button>
+        <div id="moveStick" class="joystick" role="application" aria-label="Move ship">
+          <span class="joystick-ring" aria-hidden="true"></span>
+          <span id="moveStickKnob" class="joystick-knob" aria-hidden="true"></span>
         </div>
         <button class="shoot-button" type="button" data-touch="shoot">Shoot</button>
         <button class="boost-button" type="button" data-touch="boost">Boost</button>
