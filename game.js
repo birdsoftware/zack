@@ -2196,9 +2196,14 @@
     return FRIEND_CHEER_MIN_DELAY + Math.random() * (FRIEND_CHEER_MAX_DELAY - FRIEND_CHEER_MIN_DELAY);
   }
 
+  function isPhoneViewport() {
+    return Boolean(window.matchMedia?.("(max-width: 720px)")?.matches);
+  }
+
   function spawnFriendCheer(friends) {
     const friend = friends[Math.floor(Math.random() * friends.length)];
-    const side = ["left", "right", "top", "bottom"][Math.floor(Math.random() * 4)];
+    const cheerSides = isPhoneViewport() ? ["top", "bottom"] : ["left", "right", "top", "bottom"];
+    const side = cheerSides[Math.floor(Math.random() * cheerSides.length)];
     const mazeRight = ORIGIN_X + COLS * CELL;
     const mazeBottom = ORIGIN_Y + ROWS * CELL;
     const nearX = player ? player.x + (Math.random() - 0.5) * 180 : ORIGIN_X + (COLS * CELL) / 2;

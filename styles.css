@@ -1972,6 +1972,10 @@ canvas {
 }
 
 @media (max-width: 720px) {
+  body {
+    overflow-x: hidden;
+  }
+
   :root {
     --floating-banner-buffer: clamp(98px, 13vh, 138px);
   }
@@ -2082,7 +2086,14 @@ canvas {
     font-size: 0.72rem;
   }
 
+  .stage {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
   canvas {
+    width: 126.984vw;
+    max-width: none;
     border-radius: 6px;
     height: min(58vh, 520px);
     height: min(58dvh, 520px);
