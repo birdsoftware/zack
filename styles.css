@@ -93,7 +93,7 @@ button:disabled:hover {
     "brand pilot actions"
     "stats stats stats"
     "journey journey journey";
-  grid-template-columns: minmax(180px, 1fr) minmax(0, 300px) auto;
+  grid-template-columns: minmax(340px, 1fr) minmax(0, 300px) auto;
   align-items: center;
   gap: 14px;
   padding: 12px;
@@ -113,7 +113,7 @@ button:disabled:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 0;
+  min-width: 320px;
 }
 
 .brand-mark {
@@ -163,17 +163,20 @@ button:disabled:hover {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  width: max-content;
+  max-width: 100%;
 }
 
 .brand-title {
   display: block;
+  flex: 0 0 auto;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   color: var(--ink);
   font-size: clamp(1.1rem, 2.2vw, 1.55rem);
   font-weight: 900;
   line-height: 1.05;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
@@ -2782,6 +2785,10 @@ canvas {
     gap: 10px;
   }
 
+  .brand {
+    min-width: 0;
+  }
+
   .pilot-hud {
     justify-self: stretch;
     width: 100%;
@@ -3091,6 +3098,26 @@ canvas {
 @media (pointer: coarse), (max-width: 720px) {
   .game-shell[data-mode="playing"] .mobile-controls {
     display: grid;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  .topbar {
+    grid-template-areas:
+      "brand brand"
+      "pilot actions"
+      "stats stats"
+      "journey journey";
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .pilot-hud {
+    justify-self: start;
+    width: min(360px, 100%);
   }
 }
 
