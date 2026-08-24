@@ -11,6 +11,10 @@ const JSON_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+function wantsDebug(event) {
+  return event.queryStringParameters && event.queryStringParameters.debug === "1";
+}
+
 function response(statusCode, body) {
   return {
     statusCode,
@@ -125,6 +129,14 @@ exports.handler = async (event) => {
     return response(200, { ok: true, ...totals });
   } catch (error) {
     console.error("Traffic counter failed", error);
-    return response(500, { ok: false, error: "Traffic counter unavailable" });
+    const body = { ok: false, error: "Traffic counter unavailable" };
+
+    if (wantsDebug(event)) {
+      body.detail = error && error.message ? error.message : String(error);
+      body.name = error && error.name ? error.name : "Error";
+      body.hasSiteId = Boolean(process.env.NETLIFY_SITE_ID);
+    }
+
+    return response(500, body);
   }
 };
