@@ -894,6 +894,10 @@ canvas {
   display: none;
 }
 
+.install-panel[hidden] {
+  display: none;
+}
+
 .pilot-panel,
 .upgrade-panel,
 .ship-picker-panel,
@@ -902,7 +906,8 @@ canvas {
 .audio-panel,
 .about-author-panel,
 .daily-panel,
-.victory-card-panel {
+.victory-card-panel,
+.install-panel {
   position: absolute;
   inset: 0;
   z-index: 5;
@@ -920,7 +925,8 @@ canvas {
 .audio-card,
 .about-author-card,
 .daily-card,
-.victory-card {
+.victory-card,
+.install-card {
   width: min(680px, 100%);
   padding: 18px;
   border: 1px solid rgba(73, 224, 255, 0.35);
@@ -1034,6 +1040,15 @@ canvas {
     rgba(13, 17, 22, 0.94);
 }
 
+.install-card {
+  width: min(620px, 100%);
+  border-color: rgba(121, 242, 142, 0.38);
+  background:
+    radial-gradient(circle at 18% 12%, rgba(121, 242, 142, 0.16), transparent 26%),
+    radial-gradient(circle at 86% 20%, rgba(73, 224, 255, 0.14), transparent 24%),
+    rgba(13, 17, 22, 0.95);
+}
+
 .pilot-kicker,
 .upgrade-kicker,
 .ship-picker-kicker,
@@ -1042,7 +1057,8 @@ canvas {
 .audio-kicker,
 .about-author-kicker,
 .daily-kicker,
-.victory-card-kicker {
+.victory-card-kicker,
+.install-kicker {
   display: block;
   color: var(--amber);
   font-size: 0.72rem;
@@ -1058,7 +1074,8 @@ canvas {
 .audio-card h2,
 .about-author-card h2,
 .daily-card h2,
-.victory-card h2 {
+.victory-card h2,
+.install-card h2 {
   margin: 4px 0 0;
   font-size: clamp(1.35rem, 3vw, 2.1rem);
   line-height: 1.05;
@@ -1072,7 +1089,8 @@ canvas {
 .audio-card p,
 .about-author-card p,
 .daily-card p,
-.victory-card p {
+.victory-card p,
+.install-card p {
   margin: 6px 0 14px;
   color: var(--muted);
   font-size: 0.95rem;
@@ -1080,7 +1098,8 @@ canvas {
 
 .rescue-map-head,
 .daily-head,
-.victory-card-head {
+.victory-card-head,
+.install-head {
   display: flex;
   align-items: start;
   justify-content: space-between;
@@ -1094,7 +1113,8 @@ canvas {
 }
 
 .close-daily,
-.close-victory-card {
+.close-victory-card,
+.close-install {
   flex: 0 0 auto;
   min-height: 36px;
 }
@@ -1323,6 +1343,81 @@ canvas {
   border-color: rgba(255, 202, 79, 0.28);
   background: #071016;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 44px rgba(0, 0, 0, 0.38);
+}
+
+.install-copy {
+  max-width: 52ch;
+}
+
+.install-steps {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.install-steps li {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 11px 12px;
+  border: 1px solid rgba(244, 247, 251, 0.11);
+  border-radius: 8px;
+  background: rgba(244, 247, 251, 0.06);
+}
+
+.install-steps span {
+  grid-row: span 2;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(121, 242, 142, 0.9), rgba(73, 224, 255, 0.82));
+  color: #05070b;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.install-steps strong,
+.install-steps em {
+  display: block;
+}
+
+.install-steps strong {
+  color: var(--ink);
+  font-size: 0.94rem;
+}
+
+.install-steps em {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.install-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0 0;
+}
+
+.install-actions button:first-child {
+  border-color: rgba(121, 242, 142, 0.54);
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.22), transparent 28%),
+    linear-gradient(135deg, rgba(121, 242, 142, 0.26), rgba(73, 224, 255, 0.22));
+  color: var(--ink);
+}
+
+.install-status {
+  margin: 10px 0 0;
+  color: rgba(121, 242, 142, 0.82) !important;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .memory-buttons {
@@ -3040,6 +3135,10 @@ canvas {
     align-items: end;
   }
 
+  .install-panel {
+    align-items: end;
+  }
+
   canvas {
     max-height: none;
   }
@@ -3502,7 +3601,8 @@ canvas {
   }
 
   .instructions-panel,
-  .audio-panel {
+  .audio-panel,
+  .install-panel {
     padding: 10px;
   }
 
@@ -3629,7 +3729,8 @@ canvas {
   .audio-panel,
   .about-author-panel,
   .daily-panel,
-  .victory-card-panel {
+  .victory-card-panel,
+  .install-panel {
     position: fixed;
     inset: var(--mobile-topbar-bottom, 148px) 6px var(--mobile-panel-bottom) 6px;
     z-index: 8;
@@ -3647,7 +3748,8 @@ canvas {
   .audio-card,
   .about-author-card,
   .daily-card,
-  .victory-card {
+  .victory-card,
+  .install-card {
     width: 100%;
     height: 100%;
     max-height: none;
@@ -3666,7 +3768,8 @@ canvas {
   .audio-card h2,
   .about-author-card h2,
   .daily-card h2,
-  .victory-card h2 {
+  .victory-card h2,
+  .install-card h2 {
     font-size: 1.2rem;
   }
 
@@ -3678,7 +3781,8 @@ canvas {
   .audio-card p,
   .about-author-card p,
   .daily-card p,
-  .victory-card p {
+  .victory-card p,
+  .install-card p {
     font-size: 0.86rem;
     margin-bottom: 10px;
   }
@@ -3690,7 +3794,8 @@ canvas {
   .audio-mixer,
   .about-author-layout,
   .leaderboard-block,
-  .victory-card-actions {
+  .victory-card-actions,
+  .install-steps {
     min-height: 0;
     overflow: auto;
     padding-right: 3px;
@@ -3702,7 +3807,8 @@ canvas {
   }
 
   .daily-head,
-  .victory-card-head {
+  .victory-card-head,
+  .install-head {
     align-items: center;
     gap: 10px;
     margin-bottom: 2px;
@@ -3720,7 +3826,8 @@ canvas {
   }
 
   .daily-actions,
-  .victory-card-actions {
+  .victory-card-actions,
+  .install-actions {
     flex: 0 0 auto;
     margin: 0;
     overflow: visible;

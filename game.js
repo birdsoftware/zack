@@ -79,6 +79,11 @@
     shareVictoryCard: document.getElementById("shareVictoryCardBtn"),
     downloadVictoryCard: document.getElementById("downloadVictoryCardBtn"),
     victoryCardStatus: document.getElementById("victoryCardStatus"),
+    installPanel: document.getElementById("installPanel"),
+    closeInstall: document.getElementById("closeInstallBtn"),
+    closeInstallBottom: document.getElementById("closeInstallBottomBtn"),
+    shareInstall: document.getElementById("shareInstallBtn"),
+    installStatus: document.getElementById("installStatus"),
   };
 
   const WIDTH = 960;
@@ -341,6 +346,7 @@
     aboutReturnMode: "select",
     dailyReturnMode: "select",
     victoryCardReturnMode: "playing",
+    installReturnMode: "select",
     shipPickerReturnMode: "playing",
     shipAvatar: "dart",
     playCountedThisRun: false,
@@ -1379,6 +1385,7 @@
     state.aboutReturnMode = "select";
     state.dailyReturnMode = "select";
     state.victoryCardReturnMode = "playing";
+    state.installReturnMode = "select";
     state.shipPickerReturnMode = "playing";
     state.shipAvatar = "dart";
     state.playCountedThisRun = false;
@@ -1405,6 +1412,7 @@
     ui.shipPickerPanel.hidden = true;
     ui.dailyPanel.hidden = true;
     ui.victoryCardPanel.hidden = true;
+    ui.installPanel.hidden = true;
     ui.victoryCard.hidden = true;
     ui.shareMap.hidden = true;
     ui.shareMap.disabled = true;
@@ -1949,6 +1957,7 @@
     dismissInstructionsOverlay();
     dismissDailyOverlay();
     dismissVictoryCardOverlay();
+    dismissInstallOverlay();
     state.aboutReturnMode = state.mode;
     state.mode = "about";
     keys.clear();
@@ -1976,6 +1985,7 @@
     dismissInstructionsOverlay();
     dismissAboutOverlay();
     dismissVictoryCardOverlay();
+    dismissInstallOverlay();
     if (!ui.rescueMapPanel.hidden) {
       ui.rescueMapPanel.hidden = true;
     }
@@ -2115,6 +2125,7 @@
     dismissInstructionsOverlay();
     dismissAboutOverlay();
     dismissDailyOverlay();
+    dismissInstallOverlay();
     state.victoryCardReturnMode = state.mode;
     state.mode = "victoryCard";
     keys.clear();
@@ -2498,14 +2509,92 @@
       return;
     }
 
-    state.toast = "iPhone: Share, then Add to Home Screen";
-    state.messageTimer = 2.6;
+    openInstallHelp();
+  }
+
+  function openInstallHelp() {
+    if (!ui.installPanel.hidden) {
+      return;
+    }
+    dismissInstructionsOverlay();
+    dismissAboutOverlay();
+    dismissDailyOverlay();
+    dismissVictoryCardOverlay();
+    if (!ui.rescueMapPanel.hidden) {
+      ui.rescueMapPanel.hidden = true;
+    }
+    state.installReturnMode = state.mode;
+    state.mode = "install";
+    keys.clear();
+    clearMobileStick();
+    ui.installPanel.hidden = false;
+    showInstallStatus("On iPhone: tap the browser Share button, then Add to Home Screen.");
+    syncMusic();
     updateHud();
+  }
+
+  function closeInstallHelp() {
+    if (ui.installPanel.hidden) {
+      return;
+    }
+    ui.installPanel.hidden = true;
+    state.mode = state.installReturnMode || "select";
+    state.installReturnMode = "select";
+    syncMusic();
+    updateHud();
+  }
+
+  function dismissInstallOverlay() {
+    if (ui.installPanel.hidden) {
+      return;
+    }
+    ui.installPanel.hidden = true;
+    if (state.mode === "install") {
+      state.mode = state.installReturnMode || "select";
+    }
+    state.installReturnMode = "select";
+  }
+
+  async function shareInstallLink() {
+    const payload = {
+      title: "Star Maze Dodger",
+      text: SHARE_TEXT,
+      url: publicGameUrl(),
+    };
+    const nav = window.navigator || (typeof navigator !== "undefined" ? navigator : null);
+    if (nav?.share && canNativeShare(nav, payload)) {
+      try {
+        await nav.share(payload);
+        showInstallStatus("Shared the game link. To install on iPhone, use the browser Share button and Add to Home Screen.");
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          return;
+        }
+      }
+    }
+    if (nav?.clipboard?.writeText) {
+      nav.clipboard.writeText(`${payload.text}\n${payload.url}`)
+        .then(() => showInstallStatus("Copied the game link. Open it in Safari, then Share and Add to Home Screen."))
+        .catch(() => showInstallStatus("Copy did not work here. Open the browser menu and choose Add to Home Screen."));
+      return;
+    }
+    showInstallStatus("Open the browser share menu and choose Add to Home Screen.");
+  }
+
+  function showInstallStatus(message) {
+    if (ui.installStatus) {
+      ui.installStatus.textContent = message;
+    }
   }
 
   function startOrResume() {
     if (state.mode === "shipPicker") {
       closeShipPicker();
+      return;
+    }
+    if (state.mode === "install") {
+      closeInstallHelp();
       return;
     }
     if (state.mode === "victoryCard") {
@@ -2584,6 +2673,7 @@
     dismissAboutOverlay();
     dismissDailyOverlay();
     dismissVictoryCardOverlay();
+    dismissInstallOverlay();
     state.audioReturnMode = state.mode;
     state.mode = "audio";
     keys.clear();
@@ -2705,7 +2795,7 @@
     ui.lives.textContent = String(state.lives);
     ui.score.textContent = String(state.score);
     ui.best.textContent = String(state.best);
-    ui.start.textContent = state.mode === "instructions" || state.mode === "audio" || state.mode === "map" || state.mode === "about" || state.mode === "shipPicker" || state.mode === "daily" || state.mode === "victoryCard" ? "Close" : state.mode === "select" ? "Choose" : state.mode === "paused" ? "Paused" : state.mode === "playing" ? "Flying" : state.mode === "gameover" || state.mode === "won" ? "New Pilot" : "Launch";
+    ui.start.textContent = state.mode === "instructions" || state.mode === "audio" || state.mode === "map" || state.mode === "about" || state.mode === "shipPicker" || state.mode === "daily" || state.mode === "victoryCard" || state.mode === "install" ? "Close" : state.mode === "select" ? "Choose" : state.mode === "paused" ? "Paused" : state.mode === "playing" ? "Flying" : state.mode === "gameover" || state.mode === "won" ? "New Pilot" : "Launch";
     ui.start.disabled = state.mode === "playing" || state.mode === "paused";
     ui.daily.setAttribute("aria-pressed", String(state.mode === "daily" || state.daily.active));
     ui.victoryCard.hidden = !state.victoryCardData;
@@ -7145,6 +7235,7 @@
     dismissInstructionsForMap();
     dismissDailyOverlay();
     dismissVictoryCardOverlay();
+    dismissInstallOverlay();
     if (ui.rescueMapPanel.hidden) {
       state.mapReturnMode = state.mode;
     }
@@ -8532,6 +8623,7 @@
     dismissAboutOverlay();
     dismissDailyOverlay();
     dismissVictoryCardOverlay();
+    dismissInstallOverlay();
     state.instructionsReturnMode = state.mode;
     state.mode = "instructions";
     keys.clear();
@@ -9070,6 +9162,19 @@
       return;
     }
 
+    if (state.mode === "install") {
+      if (event.code === "Escape") {
+        event.preventDefault();
+        closeInstallHelp();
+      } else if (event.code === "Enter") {
+        event.preventDefault();
+        shareInstallLink();
+      } else if (direction || event.code === "Space") {
+        event.preventDefault();
+      }
+      return;
+    }
+
     if (event.code === "KeyI") {
       event.preventDefault();
       openInstructions();
@@ -9257,6 +9362,9 @@
   ui.closeVictoryCard.addEventListener("click", closeVictoryCardPanel);
   ui.shareVictoryCard.addEventListener("click", shareVictoryCard);
   ui.downloadVictoryCard.addEventListener("click", downloadVictoryCard);
+  ui.closeInstall.addEventListener("click", closeInstallHelp);
+  ui.closeInstallBottom.addEventListener("click", closeInstallHelp);
+  ui.shareInstall.addEventListener("click", shareInstallLink);
   ui.shipChoices.addEventListener("click", (event) => {
     const button = event.target.closest("[data-ship]");
     if (!button) {

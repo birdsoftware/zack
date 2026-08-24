@@ -311,6 +311,28 @@
             <p id="victoryCardStatus" class="victory-card-status" aria-live="polite">Share Zack's reactor-core rescue run.</p>
           </div>
         </div>
+        <div id="installPanel" class="install-panel" role="dialog" aria-modal="true" aria-labelledby="installTitle" hidden>
+          <div class="install-card">
+            <div class="install-head">
+              <div>
+                <span class="install-kicker">Install as app</span>
+                <h2 id="installTitle">Add to Home Screen</h2>
+              </div>
+              <button id="closeInstallBtn" class="close-install" type="button" aria-label="Close install help">Close</button>
+            </div>
+            <p class="install-copy">Some phones do not let a website open the install prompt. Use the browser share menu and choose Add to Home Screen.</p>
+            <ol class="install-steps">
+              <li><span>1</span><strong>Tap the share button</strong><em>It looks like a square with an arrow on iPhone.</em></li>
+              <li><span>2</span><strong>Choose Add to Home Screen</strong><em>You may need to scroll the share options.</em></li>
+              <li><span>3</span><strong>Tap Add</strong><em>Star Maze Dodger will launch like a real app.</em></li>
+            </ol>
+            <div class="install-actions">
+              <button id="shareInstallBtn" type="button">Share Game Link</button>
+              <button id="closeInstallBottomBtn" type="button">Got It</button>
+            </div>
+            <p id="installStatus" class="install-status" aria-live="polite">Desktop browsers may show a one-tap install popup. iPhone uses the share menu.</p>
+          </div>
+        </div>
       </section>
 
       <section class="mobile-controls" aria-label="Touch controls">

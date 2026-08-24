@@ -1,4 +1,4 @@
-const CACHE_NAME = "star-maze-dodger-v1";
+const CACHE_NAME = "star-maze-dodger-v2";
 const APP_ASSETS = [
   "/",
   "/index.html",
@@ -7,6 +7,7 @@ const APP_ASSETS = [
   "/manifest.webmanifest",
   "/icons/icon.svg",
 ];
+const NETWORK_FIRST_PATHS = new Set(["/", "/index.html", "/styles.css", "/game.js", "/manifest.webmanifest"]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -31,6 +32,21 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   if (request.method !== "GET" || url.pathname.startsWith("/.netlify/functions/")) {
+    return;
+  }
+
+  if (url.origin === self.location.origin && NETWORK_FIRST_PATHS.has(url.pathname)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match("/index.html")))
+    );
     return;
   }
 
