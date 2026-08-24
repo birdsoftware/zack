@@ -107,6 +107,7 @@
   const OVERDRIVE_RELOAD_TIME = 0.095;
   const OVERDRIVE_FLAME_INTERVAL = 0.026;
   const MAX_OVERDRIVE_FLAMES = 130;
+  const MUSIC_TRACK_SWITCH_SECONDS = 60;
   const WORM_ARM_REACH_BLOCKS = 5;
   const WORM_ARM_WIDTH = 10;
   const STORAGE_KEY = "star-maze-dodger-best";
@@ -118,6 +119,127 @@
   const MUSIC_VOLUME_KEY = "star-maze-dodger-music-volume";
   const SFX_VOLUME_KEY = "star-maze-dodger-sfx-volume";
   const SHARE_TEXT = "Try Zack's really cool game. Zack's reactor-core rescue run!";
+  const MUSIC_TRACKS = [
+    {
+      id: "reactor-run",
+      name: "Reactor Run",
+      interval: 190,
+      overdriveInterval: 112,
+      bassHold: 4,
+      kickEvery: 4,
+      hatEvery: 2,
+      snareSteps: [6, 14, 22, 30],
+      bass: [73, 73, 98, 98, 110, 110, 82, 123],
+      arp: [292, 366, 439, 586, 366, 439, 586, 732, 392, 494, 587, 784, 494, 587, 784, 988],
+      lead: [null, null, 879, null, null, 988, null, 1175, null, null, 784, null, 659, null, 587, null, null, 988, null, 1319, null, 1175, null, 988, null, 784, null, 659, null, 587, null, 494],
+      chord: [2, 2.5, 3],
+      spark: [1175, 1568, 1760, 2093],
+      bassType: "sawtooth",
+      arpTypeA: "triangle",
+      arpTypeB: "sine",
+      leadType: "triangle",
+      padType: "sine",
+      kickFilter: 240,
+      hatFilter: 5200,
+      snareFilter: 1200,
+    },
+    {
+      id: "moon-echo",
+      name: "Moon Echo",
+      interval: 218,
+      overdriveInterval: 126,
+      bassHold: 4,
+      kickEvery: 8,
+      hatEvery: 4,
+      snareSteps: [12, 28],
+      bass: [65, 65, 82, 82, 98, 98, 73, 73],
+      arp: [261, 329, 392, 523, 659, 523, 392, 329, 293, 369, 440, 587, 739, 587, 440, 369],
+      lead: [null, 784, null, null, 659, null, 587, null, null, null, 880, null, 739, null, null, 659, null, null, 587, null, 523, null, 659, null, null, 739, null, null, 880, null, 988, null],
+      chord: [2, 2.52, 3.02],
+      spark: [1047, 1319, 1568, 1976],
+      bassType: "triangle",
+      arpTypeA: "sine",
+      arpTypeB: "triangle",
+      leadType: "sine",
+      padType: "triangle",
+      kickFilter: 180,
+      hatFilter: 4600,
+      snareFilter: 900,
+      airy: true,
+    },
+    {
+      id: "jungle-signal",
+      name: "Jungle Signal",
+      interval: 174,
+      overdriveInterval: 104,
+      bassHold: 2,
+      kickEvery: 4,
+      hatEvery: 2,
+      snareSteps: [5, 13, 21, 29],
+      bass: [98, 123, 98, 147, 110, 138, 82, 123, 98, 147, 123, 165, 110, 98, 82, 73],
+      arp: [392, 494, 587, 494, 659, 587, 494, 392, 440, 554, 659, 554, 740, 659, 554, 440],
+      lead: [784, null, null, 740, null, 659, null, null, 587, null, 659, null, 740, null, null, 988, null, 880, null, null, 740, null, 659, null, null, 587, null, 659, null, 740, null, null],
+      chord: [1.5, 2, 2.47],
+      spark: [988, 1175, 1480, 1760],
+      bassType: "sawtooth",
+      arpTypeA: "square",
+      arpTypeB: "triangle",
+      leadType: "triangle",
+      padType: "sine",
+      kickFilter: 300,
+      hatFilter: 6200,
+      snareFilter: 760,
+      shuffle: true,
+    },
+    {
+      id: "crystal-sprint",
+      name: "Crystal Sprint",
+      interval: 158,
+      overdriveInterval: 96,
+      bassHold: 4,
+      kickEvery: 4,
+      hatEvery: 1,
+      snareSteps: [7, 15, 23, 31],
+      bass: [110, 110, 147, 147, 165, 165, 123, 196],
+      arp: [440, 554, 659, 831, 1109, 831, 659, 554, 494, 622, 740, 932, 1244, 932, 740, 622],
+      lead: [null, 1109, null, 1244, null, 988, null, 831, null, 932, null, 1109, null, 1480, null, 1244, null, 1109, null, 988, null, 831, null, 740, null, 831, null, 988, null, 1244, null, 1480],
+      chord: [2, 2.25, 3],
+      spark: [1568, 1760, 2093, 2349],
+      bassType: "triangle",
+      arpTypeA: "triangle",
+      arpTypeB: "square",
+      leadType: "sine",
+      padType: "triangle",
+      kickFilter: 260,
+      hatFilter: 7800,
+      snareFilter: 1400,
+      bright: true,
+    },
+    {
+      id: "hydra-march",
+      name: "Hydra March",
+      interval: 204,
+      overdriveInterval: 118,
+      bassHold: 4,
+      kickEvery: 4,
+      hatEvery: 2,
+      snareSteps: [4, 12, 20, 28],
+      bass: [55, 55, 73, 73, 82, 82, 65, 98],
+      arp: [220, 277, 330, 440, 277, 330, 440, 554, 246, 311, 369, 493, 311, 369, 493, 622],
+      lead: [null, null, 659, null, 587, null, null, 554, null, 493, null, null, 440, null, 370, null, null, 554, null, 659, null, 740, null, 659, null, null, 587, null, 493, null, 440, null],
+      chord: [1.5, 2, 2.4],
+      spark: [740, 988, 1175, 1480],
+      bassType: "sawtooth",
+      arpTypeA: "sawtooth",
+      arpTypeB: "triangle",
+      leadType: "triangle",
+      padType: "sawtooth",
+      kickFilter: 160,
+      hatFilter: 3800,
+      snareFilter: 620,
+      dark: true,
+    },
+  ];
   const PUZZLE_VERTICAL_EDGES = [
     { center: 0.29, width: 0.17, depth: 31, dir: 1, wobble: 4.5, wave: 3.2 },
     { center: 0.55, width: 0.2, depth: 27, dir: -1, wobble: 6.5, wave: 2.4 },
@@ -174,6 +296,8 @@
     shareMapWorld: "",
     mapRevealPiece: -1,
     mapRevealStart: 0,
+    musicTrackIndex: 0,
+    musicTrackElapsed: 0,
   };
   const audience = {
     visits: bumpCounter(VISIT_KEY),
@@ -978,6 +1102,8 @@
     state.shareMapWorld = "";
     state.mapRevealPiece = -1;
     state.mapRevealStart = 0;
+    state.musicTrackIndex = 0;
+    state.musicTrackElapsed = 0;
     hideRescueCelebration();
     hideUpgradePanel();
     ui.rescueMapPanel.hidden = true;
@@ -1029,6 +1155,7 @@
     };
     state.stage = stage;
     state.levelTime = 0;
+    chooseRandomMusicTrack();
     updateHud();
   }
 
@@ -1749,6 +1876,7 @@
   function update(dt) {
     state.elapsed += dt;
     state.levelTime += dt;
+    updateMusicRotation(dt);
     state.cameraShake = Math.max(0, state.cameraShake - dt * 18);
     state.messageTimer = Math.max(0, state.messageTimer - dt);
     player.invulnerable = Math.max(0, player.invulnerable - dt);
@@ -7673,6 +7801,50 @@
     }
   }
 
+  function currentMusicTrack() {
+    return MUSIC_TRACKS[state.musicTrackIndex] || MUSIC_TRACKS[0];
+  }
+
+  function chooseRandomMusicTrack() {
+    if (!MUSIC_TRACKS.length) {
+      return;
+    }
+
+    const previous = state.musicTrackIndex;
+    let next = previous;
+    if (MUSIC_TRACKS.length > 1) {
+      while (next === previous) {
+        next = Math.floor(Math.random() * MUSIC_TRACKS.length);
+      }
+    }
+    state.musicTrackIndex = next;
+    state.musicTrackElapsed = 0;
+    restartMusicLoopForTrack();
+  }
+
+  function restartMusicLoopForTrack() {
+    musicStep = 0;
+    if (!musicTimer) {
+      return;
+    }
+
+    window.clearInterval(musicTimer);
+    musicTimer = null;
+    musicIntervalMs = desiredMusicInterval();
+    playMusicStep();
+    musicTimer = window.setInterval(playMusicStep, musicIntervalMs);
+  }
+
+  function updateMusicRotation(dt) {
+    if (state.mode !== "playing") {
+      return;
+    }
+    state.musicTrackElapsed += dt;
+    if (state.musicTrackElapsed >= MUSIC_TRACK_SWITCH_SECONDS) {
+      chooseRandomMusicTrack();
+    }
+  }
+
   function startMusic() {
     unlockAudio();
     if (!audioContext) {
@@ -7700,7 +7872,8 @@
   }
 
   function desiredMusicInterval() {
-    return musicOverdriveActive() ? 112 : 190;
+    const track = currentMusicTrack();
+    return musicOverdriveActive() ? track.overdriveInterval || 112 : track.interval || 190;
   }
 
   function refreshMusicTempo() {
@@ -7723,38 +7896,55 @@
     }
 
     refreshMusicTempo();
+    const track = currentMusicTrack();
     const overdriving = musicOverdriveActive();
     const step = musicStep % 32;
-    const bassRoots = [73, 73, 98, 98, 110, 110, 82, 123];
-    const root = bassRoots[Math.floor(step / 4) % bassRoots.length];
-    const arps = [292, 366, 439, 586, 366, 439, 586, 732, 392, 494, 587, 784, 494, 587, 784, 988];
-    const lead = [null, null, 879, null, null, 988, null, 1175, null, null, 784, null, 659, null, 587, null, null, 988, null, 1319, null, 1175, null, 988, null, 784, null, 659, null, 587, null, 494];
-    const arpNote = arps[step % arps.length];
-    const leadNote = lead[step];
+    const root = track.bass[Math.floor(step / (track.bassHold || 4)) % track.bass.length] || 73;
+    const arpNote = track.arp[step % track.arp.length];
+    const leadNote = track.lead[step % track.lead.length];
+    const kickEvery = track.kickEvery || 4;
+    const hatEvery = track.hatEvery || 2;
+    const snareSteps = track.snareSteps || [];
 
-    if (step % 4 === 0) {
-      playTone(root, overdriving ? 0.26 : 0.34, "sawtooth", overdriving ? 0.2 : 0.17, 0, musicGain);
-      playTone(root / 2, 0.18, "triangle", overdriving ? 0.18 : 0.16, 0.01, musicGain);
-      playNoise(0.055, overdriving ? 0.045 : 0.035, 240, 0, musicGain);
+    if (step % kickEvery === 0) {
+      playTone(root, overdriving ? 0.24 : 0.32, track.bassType || "sawtooth", overdriving ? 0.18 : 0.15, 0, musicGain);
+      playTone(root / 2, 0.17, "triangle", overdriving ? 0.16 : 0.13, 0.01, musicGain);
+      playNoise(0.052, overdriving ? 0.04 : 0.03, track.kickFilter || 240, 0, musicGain);
     }
     if (step % 16 === 0) {
-      playTone(root * 2, 0.92, "sine", 0.032, 0, musicGain);
-      playTone(root * 2.5, 0.92, "triangle", 0.022, 0.01, musicGain);
-      playTone(root * 3, 0.92, "sine", 0.024, 0.02, musicGain);
+      (track.chord || [2, 2.5, 3]).forEach((ratio, index) => {
+        playTone(root * ratio, 0.92, index % 2 ? track.padType || "triangle" : "sine", index === 0 ? 0.03 : 0.021, index * 0.012, musicGain);
+      });
     }
-    playTone(arpNote, overdriving ? 0.09 : 0.115, step % 2 ? "triangle" : "sine", overdriving ? 0.078 : 0.062, 0.012, musicGain);
+    if (arpNote) {
+      playTone(arpNote, overdriving ? 0.085 : 0.11, step % 2 ? track.arpTypeA || "triangle" : track.arpTypeB || "sine", overdriving ? 0.07 : 0.056, 0.012, musicGain);
+    }
     if (leadNote) {
-      playTone(leadNote, 0.18, "triangle", 0.08, 0.026, musicGain);
+      playTone(leadNote, 0.18, track.leadType || "triangle", overdriving ? 0.082 : 0.068, 0.026, musicGain);
       playTone(leadNote * 1.005, 0.14, "sine", 0.025, 0.03, musicGain);
     }
-    if (step % 2 === 0) {
-      playNoise(0.038, overdriving ? 0.036 : 0.026, 5200, 0.01, musicGain);
+    if (step % hatEvery === 0) {
+      playNoise(0.035, overdriving ? 0.031 : 0.019, track.hatFilter || 5200, 0.01, musicGain);
     }
-    if (step % 8 === 6) {
-      playNoise(0.09, 0.032, 1200, 0, musicGain);
+    if (snareSteps.includes(step)) {
+      playNoise(0.086, overdriving ? 0.035 : 0.027, track.snareFilter || 1200, 0, musicGain);
+    }
+    if (track.shuffle && step % 8 === 3) {
+      playTone(root * 3, 0.08, "triangle", 0.026, 0.02, musicGain);
+      playNoise(0.035, 0.014, 3400, 0.032, musicGain);
+    }
+    if (track.airy && step % 8 === 2) {
+      playNoise(0.11, 0.014, 9000, 0.03, musicGain);
+      playTone(root * 5, 0.12, "sine", 0.018, 0.04, musicGain);
+    }
+    if (track.bright && arpNote && step % 4 === 2) {
+      playTone(arpNote * 2, 0.07, "sine", 0.026, 0.016, musicGain);
+    }
+    if (track.dark && step % 8 === 4) {
+      playTone(root * 0.75, 0.24, "sawtooth", 0.04, 0.015, musicGain);
     }
     if (overdriving) {
-      const sparks = [1175, 1568, 1760, 2093];
+      const sparks = track.spark || [1175, 1568, 1760, 2093];
       playTone(sparks[step % sparks.length], 0.06, step % 2 ? "square" : "triangle", 0.042, 0.004, musicGain);
       if (step % 2 === 1) {
         playNoise(0.032, 0.022, 7400, 0, musicGain);
