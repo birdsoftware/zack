@@ -1470,6 +1470,7 @@
     state.messageTimer = Math.max(0, state.messageTimer - dt);
     player.invulnerable = Math.max(0, player.invulnerable - dt);
     player.reload = Math.max(0, player.reload - dt);
+    fireHeldBlaster();
     updateSentries(dt);
     updateBoss(dt);
     updateBlackHoles(dt);
@@ -2455,6 +2456,12 @@
     state.messageTimer = 0.45;
     state.toast = "Blaster";
     ping("shoot");
+  }
+
+  function fireHeldBlaster() {
+    if (state.mode === "playing" && keys.has("shoot")) {
+      fireBullet();
+    }
   }
 
   function shotAngles(angle, count) {
@@ -6620,9 +6627,11 @@
 
     if (event.code === "Space") {
       event.preventDefault();
+      keys.add("shoot");
       if (state.mode !== "playing") {
         startOrResume();
-      } else {
+      }
+      if (state.mode === "playing") {
         fireBullet();
       }
     } else if (event.code === "Enter") {
@@ -6642,6 +6651,10 @@
       event.preventDefault();
       keys.delete(direction);
     }
+    if (event.code === "Space") {
+      event.preventDefault();
+      keys.delete("shoot");
+    }
   });
 
   document.querySelectorAll("[data-touch]").forEach((button) => {
@@ -6650,9 +6663,11 @@
       event.preventDefault();
       button.setPointerCapture(event.pointerId);
       if (key === "shoot") {
+        keys.add("shoot");
         if (state.mode !== "playing") {
           startOrResume();
-        } else {
+        }
+        if (state.mode === "playing") {
           fireBullet();
         }
         return;
