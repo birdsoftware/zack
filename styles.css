@@ -2280,6 +2280,23 @@ canvas {
     padding: 6px;
   }
 
+  .brand-title-row {
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .brand-title {
+    overflow: visible;
+    font-size: 0.94rem;
+    line-height: 1.05;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .brand-info-icon {
+    margin-top: 1px;
+  }
+
   .brand-subtitle {
     display: none;
   }
