@@ -6889,7 +6889,8 @@
     if (state.mode === "ready" || state.mode === "gameover" || state.mode === "won") {
       ctx.fillStyle = "#ffca4f";
       ctx.font = "800 14px system-ui, sans-serif";
-      ctx.fillText("Press Launch or Enter", WIDTH / 2, y + 126);
+      const action = state.mode === "ready" ? "Launch" : "New Pilot";
+      ctx.fillText(`Tap ${action} or press Enter`, WIDTH / 2, y + 126);
     }
     ctx.restore();
   }
@@ -9302,6 +9303,12 @@
   });
 
   canvas.addEventListener("pointerdown", (event) => {
+    if (state.mode === "ready" || state.mode === "gameover" || state.mode === "won") {
+      event.preventDefault();
+      startOrResume();
+      return;
+    }
+
     if (!player || (state.mode !== "playing" && state.mode !== "paused")) {
       return;
     }
