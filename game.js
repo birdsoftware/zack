@@ -104,12 +104,6 @@
     { center: 0.66, width: 0.18, depth: 29, dir: 1, wobble: 4, wave: 2.8 },
   ];
   const keys = new Set();
-  const touchMoveTarget = {
-    active: false,
-    pointerId: null,
-    x: 0,
-    y: 0,
-  };
   const state = {
     mode: "select",
     stage: 0,
@@ -1448,7 +1442,7 @@
     syncLayoutMetrics();
     ui.shell.dataset.mode = state.mode;
     if (state.mode !== "playing") {
-      clearTouchMoveTarget();
+      ["up", "right", "down", "left", "boost", "shoot"].forEach((key) => keys.delete(key));
     }
     ui.level.textContent = String(state.stage + 1);
     ui.cores.textContent = `${collected}/${level.cores.length}`;
@@ -1980,18 +1974,6 @@
     const down = keys.has("down") ? 1 : 0;
     let dx = right - left;
     let dy = down - up;
-    const keyboardMoving = Boolean(dx || dy);
-    if (!keyboardMoving && touchMoveTarget.active) {
-      const targetDx = touchMoveTarget.x - player.x;
-      const targetDy = touchMoveTarget.y - player.y;
-      const targetDistance = Math.hypot(targetDx, targetDy);
-      if (targetDistance > 12) {
-        dx = targetDx / targetDistance;
-        dy = targetDy / targetDistance;
-      } else {
-        clearTouchMoveTarget();
-      }
-    }
     const length = Math.hypot(dx, dy) || 1;
     dx /= length;
     dy /= length;
@@ -2095,21 +2077,6 @@
     player.autoBoostHold = 0;
     player.autoBoostX = 0;
     player.autoBoostY = 0;
-  }
-
-  function setTouchMoveTarget(point, pointerId = null) {
-    touchMoveTarget.active = true;
-    touchMoveTarget.pointerId = pointerId;
-    touchMoveTarget.x = Math.max(ORIGIN_X + CELL * 0.5, Math.min(ORIGIN_X + (COLS - 0.5) * CELL, point.x));
-    touchMoveTarget.y = Math.max(ORIGIN_Y + CELL * 0.5, Math.min(ORIGIN_Y + (ROWS - 0.5) * CELL, point.y));
-  }
-
-  function clearTouchMoveTarget(pointerId = null) {
-    if (pointerId !== null && touchMoveTarget.pointerId !== pointerId) {
-      return;
-    }
-    touchMoveTarget.active = false;
-    touchMoveTarget.pointerId = null;
   }
 
   function updateShipMaintenance(dt, shipIsMoving) {
@@ -6558,10 +6525,6 @@
     };
   }
 
-  function isPhoneControlMode() {
-    return Boolean(window.matchMedia?.("(pointer: coarse), (max-width: 720px)")?.matches);
-  }
-
   window.addEventListener("keydown", (event) => {
     const direction = keyDirection(event.code);
     if (state.mode === "shipPicker") {
@@ -6647,7 +6610,6 @@
 
     if (direction) {
       event.preventDefault();
-      clearTouchMoveTarget();
       keys.add(direction);
     }
 
@@ -6708,27 +6670,11 @@
       return;
     }
     const point = canvasPoint(event);
-    if (state.mode === "playing" && isPhoneControlMode()) {
-      event.preventDefault();
-      canvas.setPointerCapture?.(event.pointerId);
-      setTouchMoveTarget(point, event.pointerId);
-      return;
-    }
     if (distance(point, player) <= 34) {
       event.preventDefault();
       openShipPicker();
     }
   });
-
-  canvas.addEventListener("pointermove", (event) => {
-    if (state.mode !== "playing" || !touchMoveTarget.active || touchMoveTarget.pointerId !== event.pointerId || !isPhoneControlMode()) {
-      return;
-    }
-    event.preventDefault();
-    setTouchMoveTarget(canvasPoint(event), event.pointerId);
-  });
-
-  canvas.addEventListener("pointercancel", (event) => clearTouchMoveTarget(event.pointerId));
 
   window.addEventListener("blur", () => {
     keys.clear();
