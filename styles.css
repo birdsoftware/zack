@@ -638,12 +638,13 @@ canvas {
 }
 
 .pilot-choice {
+  position: relative;
   min-height: 258px;
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   justify-items: start;
   gap: 10px;
-  padding: 14px;
+  padding: 14px 52px 14px 14px;
   text-align: left;
   background: rgba(255, 255, 255, 0.07);
 }
@@ -659,6 +660,7 @@ canvas {
 }
 
 .pilot-choice strong {
+  padding-right: 8px;
   font-size: 1rem;
   line-height: 1.15;
 }
@@ -678,15 +680,20 @@ canvas {
 }
 
 .pilot-choice .pilot-key {
-  align-self: end;
+  position: absolute;
+  top: 12px;
+  right: 12px;
   min-width: 34px;
+  min-height: 34px;
   padding: 6px 8px;
   border-radius: 8px;
   background: var(--pilot-color, var(--cyan));
   color: #05070b;
   font-size: 0.78rem;
   font-weight: 900;
+  line-height: 1.25;
   text-align: center;
+  pointer-events: none;
 }
 
 .alien-avatar {
@@ -2662,7 +2669,7 @@ canvas {
     grid-template-columns: 88px minmax(0, 1fr);
     grid-template-rows: auto auto 1fr auto;
     column-gap: 12px;
-    padding: 12px;
+    padding: 12px 54px 12px 12px;
   }
 
   .pilot-choice .alien-avatar {
@@ -2678,6 +2685,12 @@ canvas {
   .pilot-choice > span:not(.alien-avatar),
   .pilot-choice .pilot-key {
     grid-column: 2;
+  }
+
+  .pilot-choice .pilot-key {
+    grid-column: auto;
+    top: 10px;
+    right: 10px;
   }
 
   .rescue-map-head,
