@@ -3,7 +3,13 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#071016">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Star Maze Dodger">
     <title>Star Maze Dodger</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/icon.svg">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -58,6 +64,9 @@
 
         <div class="actions">
           <button id="startBtn" type="button">Launch</button>
+          <button id="dailyBtn" type="button">Daily</button>
+          <button id="victoryCardBtn" type="button" hidden>Card</button>
+          <button id="installBtn" type="button" hidden>Install</button>
           <button id="pauseBtn" type="button" aria-pressed="false">Pause</button>
           <button id="instructionsBtn" type="button">Instructions</button>
           <button id="resetBtn" type="button">Reset</button>
@@ -253,6 +262,53 @@
               </div>
             </div>
             <button id="closeAboutAuthorBottomBtn" class="close-about-author-bottom" type="button" aria-label="Close about Zack">Close</button>
+          </div>
+        </div>
+        <div id="dailyPanel" class="daily-panel" role="dialog" aria-modal="true" aria-labelledby="dailyTitle" hidden>
+          <div class="daily-card">
+            <div class="daily-head">
+              <div>
+                <span class="daily-kicker">Planet of the day</span>
+                <h2 id="dailyTitle">Daily Mission</h2>
+              </div>
+              <button id="closeDailyBtn" class="close-daily" type="button" aria-label="Close daily mission">Close</button>
+            </div>
+            <div class="daily-mission-card">
+              <span id="dailyPlanetIcon" class="daily-planet planet-moon" aria-hidden="true"></span>
+              <div>
+                <strong id="dailyMissionName">Moon Base Challenge</strong>
+                <span id="dailyMissionMeta">Same maze for everyone today.</span>
+              </div>
+            </div>
+            <div class="daily-actions">
+              <button id="startDailyBtn" class="start-daily-button" type="button">Start Daily Mission</button>
+              <button id="refreshLeadersBtn" class="refresh-leaders-button" type="button">Refresh Scores</button>
+            </div>
+            <div class="leaderboard-block">
+              <div class="leaderboard-head">
+                <span>Monthly top scores</span>
+                <strong id="dailyLeaderboardDate">Today</strong>
+              </div>
+              <ol id="dailyLeaderboardList" class="leaderboard-list"></ol>
+            </div>
+            <p id="dailyPanelStatus" class="daily-panel-status" aria-live="polite">Scores use silly pilot names only. No accounts or real names.</p>
+          </div>
+        </div>
+        <div id="victoryCardPanel" class="victory-card-panel" role="dialog" aria-modal="true" aria-labelledby="victoryCardTitle" hidden>
+          <div class="victory-card">
+            <div class="victory-card-head">
+              <div>
+                <span class="victory-card-kicker">Shareable victory card</span>
+                <h2 id="victoryCardTitle">Mission Moment</h2>
+              </div>
+              <button id="closeVictoryCardBtn" class="close-victory-card" type="button" aria-label="Close victory card">Close</button>
+            </div>
+            <canvas id="victoryCardCanvas" width="1200" height="630" aria-label="Generated victory card preview"></canvas>
+            <div class="victory-card-actions">
+              <button id="shareVictoryCardBtn" type="button">Share Card</button>
+              <button id="downloadVictoryCardBtn" type="button">Download</button>
+            </div>
+            <p id="victoryCardStatus" class="victory-card-status" aria-live="polite">Share Zack's reactor-core rescue run.</p>
           </div>
         </div>
       </section>

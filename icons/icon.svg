@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Star Maze Dodger icon">
+  <defs>
+    <linearGradient id="mark" x1="96" y1="80" x2="408" y2="432" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff5aa7"/>
+      <stop offset="0.34" stop-color="#ffca4f"/>
+      <stop offset="0.66" stop-color="#79f28e"/>
+      <stop offset="1" stop-color="#49e0ff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="42%" r="62%">
+      <stop stop-color="#ffffff" stop-opacity="0.88"/>
+      <stop offset="0.28" stop-color="#49e0ff" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#05070b" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#05070b"/>
+  <circle cx="256" cy="256" r="206" fill="url(#glow)"/>
+  <circle cx="256" cy="256" r="176" fill="url(#mark)"/>
+  <path d="M338 90 202 422" stroke="#05070b" stroke-width="42" stroke-linecap="round"/>
+  <path d="M164 334 256 96 348 334 256 296z" fill="#2f7dff" stroke="#f4f7fb" stroke-width="12" stroke-linejoin="round"/>
+  <circle cx="256" cy="224" r="34" fill="#49e0ff" stroke="#05070b" stroke-width="10"/>
+  <path d="M198 354h116l-26 74h-64z" fill="#79f28e"/>
+  <path d="M145 370c-34-19-58-45-70-78 39 0 73 11 102 34z" fill="#ffca4f"/>
+  <path d="M367 370c34-19 58-45 70-78-39 0-73 11-102 34z" fill="#ff5aa7"/>
+</svg>

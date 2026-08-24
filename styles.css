@@ -472,12 +472,17 @@ button:disabled:hover {
   gap: 8px;
 }
 
+.actions button[hidden] {
+  display: none;
+}
+
 #startBtn {
   background: linear-gradient(135deg, rgba(73, 224, 255, 0.26), rgba(121, 242, 142, 0.2));
   border-color: rgba(73, 224, 255, 0.44);
 }
 
 #soundBtn[aria-pressed="true"],
+#dailyBtn[aria-pressed="true"],
 #pauseBtn[aria-pressed="true"] {
   border-color: rgba(255, 202, 79, 0.58);
   background: rgba(255, 202, 79, 0.14);
@@ -881,13 +886,23 @@ canvas {
   display: none;
 }
 
+.daily-panel[hidden] {
+  display: none;
+}
+
+.victory-card-panel[hidden] {
+  display: none;
+}
+
 .pilot-panel,
 .upgrade-panel,
 .ship-picker-panel,
 .rescue-map-panel,
 .instructions-panel,
 .audio-panel,
-.about-author-panel {
+.about-author-panel,
+.daily-panel,
+.victory-card-panel {
   position: absolute;
   inset: 0;
   z-index: 5;
@@ -903,7 +918,9 @@ canvas {
 .rescue-map-card,
 .instructions-card,
 .audio-card,
-.about-author-card {
+.about-author-card,
+.daily-card,
+.victory-card {
   width: min(680px, 100%);
   padding: 18px;
   border: 1px solid rgba(73, 224, 255, 0.35);
@@ -999,13 +1016,33 @@ canvas {
   width: min(860px, 100%);
 }
 
+.daily-card {
+  width: min(760px, 100%);
+  border-color: rgba(121, 242, 142, 0.34);
+  background:
+    radial-gradient(circle at 18% 10%, rgba(121, 242, 142, 0.13), transparent 26%),
+    radial-gradient(circle at 88% 18%, rgba(73, 224, 255, 0.12), transparent 24%),
+    rgba(13, 17, 22, 0.94);
+}
+
+.victory-card {
+  width: min(900px, 100%);
+  border-color: rgba(255, 202, 79, 0.36);
+  background:
+    radial-gradient(circle at 16% 16%, rgba(255, 202, 79, 0.12), transparent 28%),
+    radial-gradient(circle at 86% 14%, rgba(73, 224, 255, 0.14), transparent 26%),
+    rgba(13, 17, 22, 0.94);
+}
+
 .pilot-kicker,
 .upgrade-kicker,
 .ship-picker-kicker,
 .rescue-map-kicker,
 .instructions-kicker,
 .audio-kicker,
-.about-author-kicker {
+.about-author-kicker,
+.daily-kicker,
+.victory-card-kicker {
   display: block;
   color: var(--amber);
   font-size: 0.72rem;
@@ -1019,7 +1056,9 @@ canvas {
 .rescue-map-card h2,
 .instructions-card h2,
 .audio-card h2,
-.about-author-card h2 {
+.about-author-card h2,
+.daily-card h2,
+.victory-card h2 {
   margin: 4px 0 0;
   font-size: clamp(1.35rem, 3vw, 2.1rem);
   line-height: 1.05;
@@ -1031,13 +1070,17 @@ canvas {
 .rescue-map-card p,
 .instructions-card p,
 .audio-card p,
-.about-author-card p {
+.about-author-card p,
+.daily-card p,
+.victory-card p {
   margin: 6px 0 14px;
   color: var(--muted);
   font-size: 0.95rem;
 }
 
-.rescue-map-head {
+.rescue-map-head,
+.daily-head,
+.victory-card-head {
   display: flex;
   align-items: start;
   justify-content: space-between;
@@ -1046,6 +1089,12 @@ canvas {
 }
 
 .close-rescue-map {
+  flex: 0 0 auto;
+  min-height: 36px;
+}
+
+.close-daily,
+.close-victory-card {
   flex: 0 0 auto;
   min-height: 36px;
 }
@@ -1120,6 +1169,160 @@ canvas {
   font-size: 0.8rem !important;
   font-weight: 800;
   text-align: right;
+}
+
+.daily-mission-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(244, 247, 251, 0.12);
+  border-radius: 8px;
+  background: rgba(244, 247, 251, 0.06);
+}
+
+.daily-planet {
+  width: 58px;
+  height: 58px;
+  display: inline-block;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  box-shadow: 0 0 22px var(--world-glow, rgba(73, 224, 255, 0.44));
+}
+
+.daily-mission-card strong,
+.daily-mission-card span {
+  display: block;
+}
+
+.daily-mission-card strong {
+  color: var(--ink);
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.daily-mission-card span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.daily-actions,
+.victory-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.start-daily-button {
+  border-color: rgba(121, 242, 142, 0.54);
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.22), transparent 28%),
+    linear-gradient(135deg, rgba(121, 242, 142, 0.26), rgba(73, 224, 255, 0.22));
+  color: var(--ink);
+}
+
+.leaderboard-block {
+  padding: 12px;
+  border: 1px solid rgba(244, 247, 251, 0.12);
+  border-radius: 8px;
+  background: rgba(5, 7, 11, 0.42);
+}
+
+.leaderboard-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: rgba(244, 247, 251, 0.7);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.leaderboard-head strong {
+  color: var(--green);
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 7px;
+  min-height: 54px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leaderboard-list li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(86px, auto) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(244, 247, 251, 0.09);
+  border-radius: 7px;
+  background: rgba(244, 247, 251, 0.055);
+}
+
+.leaderboard-rank {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 7px;
+  background: rgba(73, 224, 255, 0.2);
+  color: var(--cyan);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.leaderboard-name,
+.leaderboard-world {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-name {
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.leaderboard-world {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.leaderboard-list strong {
+  color: var(--amber);
+  font-size: 0.88rem;
+}
+
+.leaderboard-empty {
+  grid-template-columns: 1fr !important;
+  color: var(--muted);
+  font-weight: 800;
+  text-align: center;
+}
+
+.daily-panel-status,
+.victory-card-status {
+  margin: 10px 0 0;
+  color: rgba(244, 247, 251, 0.66);
+  font-size: 0.78rem;
+}
+
+#victoryCardCanvas {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 40 / 21;
+  border-color: rgba(255, 202, 79, 0.28);
+  background: #071016;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 44px rgba(0, 0, 0, 0.38);
 }
 
 .memory-buttons {
@@ -3424,7 +3627,9 @@ canvas {
   .rescue-map-panel,
   .instructions-panel,
   .audio-panel,
-  .about-author-panel {
+  .about-author-panel,
+  .daily-panel,
+  .victory-card-panel {
     position: fixed;
     inset: var(--mobile-topbar-bottom, 148px) 6px var(--mobile-panel-bottom) 6px;
     z-index: 8;
@@ -3440,7 +3645,9 @@ canvas {
   .rescue-map-card,
   .instructions-card,
   .audio-card,
-  .about-author-card {
+  .about-author-card,
+  .daily-card,
+  .victory-card {
     width: 100%;
     height: 100%;
     max-height: none;
@@ -3457,7 +3664,9 @@ canvas {
   .rescue-map-card h2,
   .instructions-card h2,
   .audio-card h2,
-  .about-author-card h2 {
+  .about-author-card h2,
+  .daily-card h2,
+  .victory-card h2 {
     font-size: 1.2rem;
   }
 
@@ -3467,7 +3676,9 @@ canvas {
   .rescue-map-card p,
   .instructions-card p,
   .audio-card p,
-  .about-author-card p {
+  .about-author-card p,
+  .daily-card p,
+  .victory-card p {
     font-size: 0.86rem;
     margin-bottom: 10px;
   }
@@ -3477,10 +3688,64 @@ canvas {
   .ship-choices,
   .instructions-grid,
   .audio-mixer,
-  .about-author-layout {
+  .about-author-layout,
+  .leaderboard-block,
+  .victory-card-actions {
     min-height: 0;
     overflow: auto;
     padding-right: 3px;
+  }
+
+  .daily-card,
+  .victory-card {
+    gap: 10px;
+  }
+
+  .daily-head,
+  .victory-card-head {
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 2px;
+  }
+
+  .daily-mission-card {
+    flex: 0 0 auto;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .daily-planet {
+    width: 46px;
+    height: 46px;
+  }
+
+  .daily-actions,
+  .victory-card-actions {
+    flex: 0 0 auto;
+    margin: 0;
+    overflow: visible;
+  }
+
+  .leaderboard-block {
+    flex: 1 1 auto;
+    padding: 10px;
+    overscroll-behavior: contain;
+  }
+
+  .leaderboard-list li {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    padding: 7px;
+  }
+
+  .leaderboard-world {
+    display: none;
+  }
+
+  #victoryCardCanvas {
+    flex: 0 0 auto;
+    max-height: 42vh;
+    transform: none;
+    min-height: 0;
   }
 
   .instructions-panel {

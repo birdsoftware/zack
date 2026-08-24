@@ -13,6 +13,9 @@
     journeyProgress: document.getElementById("journeyProgress"),
     aboutAuthor: document.getElementById("aboutAuthorBtn"),
     start: document.getElementById("startBtn"),
+    daily: document.getElementById("dailyBtn"),
+    victoryCard: document.getElementById("victoryCardBtn"),
+    install: document.getElementById("installBtn"),
     pause: document.getElementById("pauseBtn"),
     instructions: document.getElementById("instructionsBtn"),
     reset: document.getElementById("resetBtn"),
@@ -60,6 +63,22 @@
     moveStick: document.getElementById("moveStick"),
     moveStickKnob: document.getElementById("moveStickKnob"),
     rescueCelebration: document.getElementById("rescueCelebration"),
+    dailyPanel: document.getElementById("dailyPanel"),
+    closeDaily: document.getElementById("closeDailyBtn"),
+    startDaily: document.getElementById("startDailyBtn"),
+    refreshLeaders: document.getElementById("refreshLeadersBtn"),
+    dailyPlanetIcon: document.getElementById("dailyPlanetIcon"),
+    dailyMissionName: document.getElementById("dailyMissionName"),
+    dailyMissionMeta: document.getElementById("dailyMissionMeta"),
+    dailyLeaderboardDate: document.getElementById("dailyLeaderboardDate"),
+    dailyLeaderboardList: document.getElementById("dailyLeaderboardList"),
+    dailyPanelStatus: document.getElementById("dailyPanelStatus"),
+    victoryCardPanel: document.getElementById("victoryCardPanel"),
+    victoryCardCanvas: document.getElementById("victoryCardCanvas"),
+    closeVictoryCard: document.getElementById("closeVictoryCardBtn"),
+    shareVictoryCard: document.getElementById("shareVictoryCardBtn"),
+    downloadVictoryCard: document.getElementById("downloadVictoryCardBtn"),
+    victoryCardStatus: document.getElementById("victoryCardStatus"),
   };
 
   const WIDTH = 960;
@@ -116,10 +135,41 @@
   const VISIT_KEY = "star-maze-dodger-visits";
   const PLAY_KEY = "star-maze-dodger-plays";
   const TRAFFIC_ENDPOINT = "/.netlify/functions/traffic";
+  const LEADERBOARD_ENDPOINT = "/.netlify/functions/leaderboard";
   const MUTED_KEY = "star-maze-dodger-muted";
   const MUSIC_VOLUME_KEY = "star-maze-dodger-music-volume";
   const SFX_VOLUME_KEY = "star-maze-dodger-sfx-volume";
+  const DAILY_ALIAS_KEY = "star-maze-dodger-silly-alias";
   const SHARE_TEXT = "Try Zack's really cool game. Zack's reactor-core rescue run!";
+  const GAME_URL = "https://mrzack.netlify.app/";
+  const DAILY_NAME_ADJECTIVES = [
+    "Blue",
+    "Laser",
+    "Moon",
+    "Turbo",
+    "Cosmic",
+    "Neon",
+    "Crystal",
+    "Rocket",
+    "Quantum",
+    "Solar",
+    "Jungle",
+    "Comet",
+  ];
+  const DAILY_NAME_NOUNS = [
+    "Comet",
+    "Bean",
+    "Wizard",
+    "Pilot",
+    "Spark",
+    "Ranger",
+    "Noodle",
+    "Nova",
+    "Bolt",
+    "Orbit",
+    "Muffin",
+    "Hero",
+  ];
   const MUSIC_TRACKS = [
     {
       id: "reactor-run",
@@ -289,9 +339,23 @@
     instructionsReturnMode: "ready",
     audioReturnMode: "ready",
     aboutReturnMode: "select",
+    dailyReturnMode: "select",
+    victoryCardReturnMode: "playing",
     shipPickerReturnMode: "playing",
     shipAvatar: "dart",
     playCountedThisRun: false,
+    runMode: "campaign",
+    daily: {
+      active: false,
+      completed: false,
+      submitted: false,
+      meta: null,
+      alias: "",
+      entries: [],
+      loading: false,
+    },
+    victoryCardData: null,
+    installReady: false,
     shareMapReady: false,
     shareMapFriend: "",
     shareMapWorld: "",
@@ -308,6 +372,7 @@
   };
 
   const mapCtx = ui.rescueMapCanvas.getContext("2d");
+  const victoryCtx = ui.victoryCardCanvas.getContext("2d");
 
   let audioContext = null;
   let masterGain = null;
@@ -320,6 +385,7 @@
   let player = null;
   let lastFrame = performance.now();
   let rescueCelebrationTimeout = null;
+  let deferredInstallPrompt = null;
 
   function Rng(seed) {
     this.seed = seed >>> 0;
@@ -958,6 +1024,211 @@
     return String(Math.max(0, Number(value) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   }
 
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function stringHash(text) {
+    let hash = 2166136261;
+    for (let i = 0; i < String(text).length; i += 1) {
+      hash ^= String(text).charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  function dailyDateKey(date = new Date()) {
+    return date.toISOString().slice(0, 10);
+  }
+
+  function dailyMonthKey(dateKey = dailyDateKey()) {
+    return String(dateKey).slice(0, 7);
+  }
+
+  function monthLabel(monthKey = dailyMonthKey()) {
+    const [year, month] = String(monthKey).split("-").map(Number);
+    if (!year || !month) {
+      return "This month";
+    }
+    return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  }
+
+  function dayLabel(dateKey = dailyDateKey()) {
+    const [year, month, day] = String(dateKey).split("-").map(Number);
+    if (!year || !month || !day) {
+      return "today";
+    }
+    return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+  }
+
+  function readDailyAlias() {
+    try {
+      const stored = localStorage.getItem(DAILY_ALIAS_KEY);
+      if (stored && /^[A-Za-z ]{3,28}$/.test(stored)) {
+        return stored;
+      }
+    } catch (error) {
+      // Browsers without storage simply get a fresh silly name each session.
+    }
+    const alias = makeSillyAlias();
+    try {
+      localStorage.setItem(DAILY_ALIAS_KEY, alias);
+    } catch (error) {
+      // The alias is still safe and usable for this session.
+    }
+    return alias;
+  }
+
+  function makeSillyAlias(seed = Math.floor(Math.random() * 1000000)) {
+    const rng = new Rng(stringHash(`alias-${seed}-${Date.now()}`));
+    const adjective = DAILY_NAME_ADJECTIVES[rng.int(0, DAILY_NAME_ADJECTIVES.length - 1)];
+    const noun = DAILY_NAME_NOUNS[rng.int(0, DAILY_NAME_NOUNS.length - 1)];
+    return `${adjective} ${noun}`;
+  }
+
+  function todayDailyMission() {
+    const dateKey = dailyDateKey();
+    const seed = stringHash(`zack-daily-mission-${dateKey}`);
+    const worldIndex = seed % RESCUE_WORLDS.length;
+    const stage = Math.floor(seed / 7) % MAX_LEVELS;
+    const pilotIndex = Math.floor(seed / 19) % PILOTS.length;
+    const world = rescueWorldAt(worldIndex);
+    const pilot = PILOTS[pilotIndex];
+    return {
+      dateKey,
+      monthKey: dailyMonthKey(dateKey),
+      seed,
+      worldIndex,
+      stage,
+      world,
+      pilot,
+      name: `${world.name} Daily Run`,
+      label: dayLabel(dateKey),
+    };
+  }
+
+  function normalizeLeaderboardEntries(entries) {
+    return Array.isArray(entries)
+      ? entries
+        .map((entry) => ({
+          alias: typeof entry.alias === "string" ? entry.alias.slice(0, 28) : "Mystery Pilot",
+          score: Math.max(0, Math.floor(Number(entry.score) || 0)),
+          seconds: Math.max(0, Number(entry.seconds) || 0),
+          dateKey: typeof entry.dateKey === "string" ? entry.dateKey : "",
+          world: typeof entry.world === "string" ? entry.world.slice(0, 32) : "Planet",
+          pilot: typeof entry.pilot === "string" ? entry.pilot.slice(0, 32) : "Pilot",
+        }))
+      : [];
+  }
+
+  async function loadMonthlyLeaderboard(monthKey = todayDailyMission().monthKey) {
+    renderLeaderboardStatus("Loading monthly scores...");
+    state.daily.loading = true;
+    if (typeof fetch !== "function") {
+      state.daily.loading = false;
+      renderLeaderboardStatus("Monthly scores need the live website connection.");
+      renderLeaderboard([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${LEADERBOARD_ENDPOINT}?month=${encodeURIComponent(monthKey)}`, {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        throw new Error(`Leaderboard returned ${response.status}`);
+      }
+      const payload = await response.json();
+      state.daily.entries = normalizeLeaderboardEntries(payload.entries);
+      state.daily.loading = false;
+      renderLeaderboard(state.daily.entries);
+      renderLeaderboardStatus("Top monthly scores use silly names only.");
+    } catch (error) {
+      state.daily.loading = false;
+      renderLeaderboard(state.daily.entries || []);
+      renderLeaderboardStatus("Leaderboard is warming up. Try refresh in a moment.");
+    }
+  }
+
+  async function submitMonthlyLeaderboardScore() {
+    if (!state.daily.active || state.daily.submitted || !state.daily.meta || typeof fetch !== "function") {
+      return;
+    }
+
+    state.daily.submitted = true;
+    const meta = state.daily.meta;
+    const payload = {
+      alias: state.daily.alias || readDailyAlias(),
+      score: state.score,
+      seconds: Number(state.levelTime.toFixed(2)),
+      dateKey: meta.dateKey,
+      monthKey: meta.monthKey,
+      world: meta.world.name,
+      pilot: meta.pilot.name,
+    };
+
+    try {
+      const response = await fetch(LEADERBOARD_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      });
+      if (!response.ok) {
+        throw new Error(`Leaderboard submit returned ${response.status}`);
+      }
+      const result = await response.json();
+      state.daily.entries = normalizeLeaderboardEntries(result.entries);
+      renderLeaderboard(state.daily.entries);
+      renderLeaderboardStatus(`${payload.alias} joined the ${monthLabel(meta.monthKey)} board.`);
+    } catch (error) {
+      state.daily.submitted = false;
+      renderLeaderboardStatus("Could not submit the score yet. The local victory still counts.");
+    }
+  }
+
+  function finishDailyMission() {
+    const meta = state.daily.meta || todayDailyMission();
+    const timeBonus = Math.max(120, Math.round(620 - state.levelTime * 9));
+    state.daily.completed = true;
+    state.score += 500 + timeBonus;
+    state.mode = "won";
+    state.messageTimer = 2;
+    state.toast = "Daily mission complete";
+    state.cameraShake = Math.max(state.cameraShake, 1.4);
+    addBurst(player.x, player.y, meta.world.glow || "#79f28e", 42);
+    setVictoryCard({
+      kind: "daily",
+      title: "Daily Mission Complete",
+      subtitle: `${meta.label} • ${monthLabel(meta.monthKey)} board`,
+      world: meta.world.name,
+      pilot: meta.pilot.name,
+      friend: "Planet of the Day",
+      score: state.score,
+      seconds: Number(state.levelTime.toFixed(2)),
+      detail: `${state.daily.alias || readDailyAlias()} finished Zack's daily challenge.`,
+      accent: meta.world.glow || meta.world.accent || "#79f28e",
+    });
+    saveBestScore();
+    submitMonthlyLeaderboardScore();
+    syncMusic();
+    updateHud();
+  }
+
   function makeFreshCampaign() {
     return PILOTS.reduce((campaign, pilot) => {
       campaign[pilot.id] = { rescued: 0 };
@@ -1106,9 +1377,18 @@
     state.instructionsReturnMode = "select";
     state.audioReturnMode = "select";
     state.aboutReturnMode = "select";
+    state.dailyReturnMode = "select";
+    state.victoryCardReturnMode = "playing";
     state.shipPickerReturnMode = "playing";
     state.shipAvatar = "dart";
     state.playCountedThisRun = false;
+    state.runMode = "campaign";
+    state.daily.active = false;
+    state.daily.completed = false;
+    state.daily.submitted = false;
+    state.daily.meta = null;
+    state.daily.alias = readDailyAlias();
+    state.victoryCardData = null;
     state.shareMapReady = false;
     state.shareMapFriend = "";
     state.shareMapWorld = "";
@@ -1123,6 +1403,9 @@
     ui.audioPanel.hidden = true;
     ui.aboutAuthorPanel.hidden = true;
     ui.shipPickerPanel.hidden = true;
+    ui.dailyPanel.hidden = true;
+    ui.victoryCardPanel.hidden = true;
+    ui.victoryCard.hidden = true;
     ui.shareMap.hidden = true;
     ui.shareMap.disabled = true;
     ui.shareMapStatus.textContent = "";
@@ -1172,7 +1455,8 @@
   }
 
   function generateLevel(stage) {
-    const rng = new Rng(3119 + stage * 7919);
+    const dailyMeta = state.daily.active ? state.daily.meta : null;
+    const rng = new Rng(dailyMeta ? dailyMeta.seed + stage * 7919 : 3119 + stage * 7919);
     const challenge = difficultyLevelForStage(stage);
     const wallHits = Math.min(8, 1 + Math.floor(challenge / 8));
     const grid = Array.from({ length: ROWS }, () => Array(COLS).fill(1));
@@ -1269,6 +1553,9 @@
   }
 
   function difficultyLevelForStage(stage) {
+    if (state.daily.active && state.daily.meta) {
+      return state.daily.meta.worldIndex * MAX_LEVELS + stage + 2;
+    }
     return state.raceProgress * MAX_LEVELS + stage;
   }
 
@@ -1660,6 +1947,8 @@
       return;
     }
     dismissInstructionsOverlay();
+    dismissDailyOverlay();
+    dismissVictoryCardOverlay();
     state.aboutReturnMode = state.mode;
     state.mode = "about";
     keys.clear();
@@ -1680,9 +1969,551 @@
     updateHud();
   }
 
+  function openDailyMissionPanel() {
+    if (!ui.dailyPanel.hidden) {
+      return;
+    }
+    dismissInstructionsOverlay();
+    dismissAboutOverlay();
+    dismissVictoryCardOverlay();
+    if (!ui.rescueMapPanel.hidden) {
+      ui.rescueMapPanel.hidden = true;
+    }
+    state.dailyReturnMode = state.mode;
+    state.mode = "daily";
+    keys.clear();
+    clearMobileStick();
+    renderDailyPanel();
+    ui.dailyPanel.hidden = false;
+    syncMusic();
+    updateHud();
+    loadMonthlyLeaderboard(todayDailyMission().monthKey);
+  }
+
+  function closeDailyMissionPanel() {
+    if (ui.dailyPanel.hidden) {
+      return;
+    }
+    ui.dailyPanel.hidden = true;
+    state.mode = state.dailyReturnMode || "select";
+    state.dailyReturnMode = "select";
+    syncMusic();
+    updateHud();
+  }
+
+  function dismissDailyOverlay() {
+    if (ui.dailyPanel.hidden) {
+      return;
+    }
+    ui.dailyPanel.hidden = true;
+    if (state.mode === "daily") {
+      state.mode = state.dailyReturnMode || "select";
+    }
+    state.dailyReturnMode = "select";
+  }
+
+  function renderDailyPanel() {
+    const meta = todayDailyMission();
+    const alias = state.daily.alias || readDailyAlias();
+    if (ui.dailyPlanetIcon) {
+      ui.dailyPlanetIcon.className = `daily-planet planet-${meta.world.id}`;
+    }
+    ui.dailyMissionName.textContent = meta.name;
+    ui.dailyMissionMeta.textContent = `${meta.label} • ${meta.pilot.name} • playing as ${alias}`;
+    ui.dailyLeaderboardDate.textContent = monthLabel(meta.monthKey);
+    renderLeaderboard(state.daily.entries || []);
+    renderLeaderboardStatus("Scores use silly pilot names only. No accounts or real names.");
+  }
+
+  function renderLeaderboard(entries = []) {
+    if (!ui.dailyLeaderboardList) {
+      return;
+    }
+    const safeEntries = normalizeLeaderboardEntries(entries).slice(0, 10);
+    ui.dailyLeaderboardList.innerHTML = safeEntries.length
+      ? safeEntries.map((entry, index) => `
+        <li>
+          <span class="leaderboard-rank">${index + 1}</span>
+          <span class="leaderboard-name">${escapeHtml(entry.alias)}</span>
+          <span class="leaderboard-world">${escapeHtml(entry.world)}</span>
+          <strong>${formatCounter(entry.score)}</strong>
+        </li>
+      `).join("")
+      : `<li class="leaderboard-empty">No monthly scores yet. Be the first silly pilot.</li>`;
+  }
+
+  function renderLeaderboardStatus(message) {
+    if (ui.dailyPanelStatus) {
+      ui.dailyPanelStatus.textContent = message;
+    }
+  }
+
+  function startDailyMission() {
+    const meta = todayDailyMission();
+    state.runMode = "daily";
+    state.daily.active = true;
+    state.daily.completed = false;
+    state.daily.submitted = false;
+    state.daily.meta = meta;
+    state.daily.alias = state.daily.alias || readDailyAlias();
+    state.mode = "playing";
+    state.stage = meta.stage;
+    state.score = 0;
+    state.lives = 5;
+    state.elapsed = 0;
+    state.levelTime = 0;
+    state.messageTimer = 1.5;
+    state.toast = `${meta.world.name} daily run`;
+    state.loadout = makeBaseLoadout();
+    state.pilot = meta.pilot;
+    state.pilotLevel = 1;
+    state.raceProgress = meta.worldIndex;
+    state.rescuedFriend = null;
+    state.upgradeChoices = [];
+    state.upgradeKind = "core";
+    state.upgradeHistory = new Set();
+    state.pilotUpgradeHistory = new Set();
+    state.upgradeCount = 0;
+    state.pendingStage = null;
+    state.puzzlePieces = 0;
+    state.mapView = "current";
+    state.archiveIndex = 0;
+    state.playCountedThisRun = false;
+    state.victoryCardData = null;
+    ui.dailyPanel.hidden = true;
+    ui.pilotPanel.hidden = true;
+    ui.upgradePanel.hidden = true;
+    ui.rescueMapPanel.hidden = true;
+    ui.victoryCardPanel.hidden = true;
+    meta.pilot.apply(state.loadout, state, player);
+    setupLevel(meta.stage);
+    countPlayLaunch();
+    renderPilotHud();
+    setVictoryCard(null);
+    ping("start");
+    syncMusic();
+    updateHud();
+  }
+
+  function setVictoryCard(data) {
+    state.victoryCardData = data
+      ? {
+        createdAt: new Date().toISOString(),
+        ...data,
+      }
+      : null;
+    ui.victoryCard.hidden = !state.victoryCardData;
+    if (state.victoryCardData && !ui.victoryCardPanel.hidden) {
+      drawVictoryCard();
+    }
+  }
+
+  function openVictoryCardPanel() {
+    if (!state.victoryCardData || !ui.victoryCardPanel.hidden) {
+      return;
+    }
+    dismissInstructionsOverlay();
+    dismissAboutOverlay();
+    dismissDailyOverlay();
+    state.victoryCardReturnMode = state.mode;
+    state.mode = "victoryCard";
+    keys.clear();
+    clearMobileStick();
+    drawVictoryCard();
+    showVictoryCardStatus("Share Zack's reactor-core rescue run.");
+    ui.victoryCardPanel.hidden = false;
+    syncMusic();
+    updateHud();
+  }
+
+  function closeVictoryCardPanel() {
+    if (ui.victoryCardPanel.hidden) {
+      return;
+    }
+    ui.victoryCardPanel.hidden = true;
+    state.mode = state.victoryCardReturnMode || "playing";
+    state.victoryCardReturnMode = "playing";
+    syncMusic();
+    updateHud();
+  }
+
+  function dismissVictoryCardOverlay() {
+    if (ui.victoryCardPanel.hidden) {
+      return;
+    }
+    ui.victoryCardPanel.hidden = true;
+    if (state.mode === "victoryCard") {
+      state.mode = state.victoryCardReturnMode || "playing";
+    }
+    state.victoryCardReturnMode = "playing";
+  }
+
+  function drawVictoryCard() {
+    if (!state.victoryCardData || !victoryCtx) {
+      return;
+    }
+
+    const data = state.victoryCardData;
+    const canvas = ui.victoryCardCanvas;
+    const w = canvas.width;
+    const h = canvas.height;
+    const accent = data.accent || "#49e0ff";
+    const seed = stringHash(`${data.title}-${data.world}-${data.score}`);
+    const rng = new Rng(seed);
+    const bg = victoryCtx.createLinearGradient(0, 0, w, h);
+    bg.addColorStop(0, "#071016");
+    bg.addColorStop(0.45, "#121620");
+    bg.addColorStop(1, "#05070b");
+    victoryCtx.fillStyle = bg;
+    victoryCtx.fillRect(0, 0, w, h);
+
+    for (let i = 0; i < 90; i += 1) {
+      const x = rng.float(0, w);
+      const y = rng.float(0, h);
+      const size = rng.float(1.2, 3.6);
+      victoryCtx.globalAlpha = rng.float(0.35, 0.95);
+      victoryCtx.fillStyle = rng.float(0, 1) > 0.72 ? accent : "#f4f7fb";
+      victoryCtx.beginPath();
+      victoryCtx.arc(x, y, size, 0, Math.PI * 2);
+      victoryCtx.fill();
+    }
+    victoryCtx.globalAlpha = 1;
+
+    const glow = victoryCtx.createRadialGradient(w * 0.78, h * 0.22, 10, w * 0.78, h * 0.22, 330);
+    glow.addColorStop(0, accent);
+    glow.addColorStop(0.35, `${accent}66`);
+    glow.addColorStop(1, "rgba(73, 224, 255, 0)");
+    victoryCtx.fillStyle = glow;
+    victoryCtx.fillRect(0, 0, w, h);
+
+    roundVictoryRect(48, 48, w - 96, h - 96, 28);
+    victoryCtx.fillStyle = "rgba(13, 17, 22, 0.76)";
+    victoryCtx.fill();
+    victoryCtx.lineWidth = 4;
+    victoryCtx.strokeStyle = "rgba(244, 247, 251, 0.16)";
+    victoryCtx.stroke();
+
+    drawVictoryPlanet(w - 250, 188, 98, accent);
+    drawVictoryShip(190, 360, accent);
+    drawVictoryBadge(760, 400, data);
+
+    victoryCtx.textAlign = "left";
+    victoryCtx.fillStyle = "#ffca4f";
+    victoryCtx.font = "900 32px system-ui, sans-serif";
+    victoryCtx.fillText("STAR MAZE DODGER", 88, 112);
+
+    victoryCtx.fillStyle = "#f4f7fb";
+    victoryCtx.font = "900 62px system-ui, sans-serif";
+    drawVictoryText(data.title || "Mission Complete", 88, 192, 620, 68);
+
+    victoryCtx.fillStyle = "rgba(244, 247, 251, 0.75)";
+    victoryCtx.font = "800 27px system-ui, sans-serif";
+    drawVictoryText(data.subtitle || data.world || "Zack's rescue run", 92, 314, 610, 34);
+
+    victoryCtx.fillStyle = accent;
+    victoryCtx.font = "900 30px system-ui, sans-serif";
+    victoryCtx.fillText(formatCounter(data.score || state.score), 92, 420);
+    victoryCtx.fillStyle = "rgba(244, 247, 251, 0.72)";
+    victoryCtx.font = "800 22px system-ui, sans-serif";
+    victoryCtx.fillText("POINTS", 92, 452);
+
+    victoryCtx.fillStyle = "#f4f7fb";
+    victoryCtx.font = "800 25px system-ui, sans-serif";
+    drawVictoryText(data.detail || SHARE_TEXT, 92, 510, 720, 32);
+
+    victoryCtx.fillStyle = "rgba(244, 247, 251, 0.78)";
+    victoryCtx.font = "900 24px system-ui, sans-serif";
+    victoryCtx.fillText("Try Zack's reactor-core rescue run!", 92, h - 76);
+    victoryCtx.fillStyle = "rgba(121, 242, 142, 0.9)";
+    victoryCtx.textAlign = "right";
+    victoryCtx.fillText(GAME_URL.replace(/^https?:\/\//, ""), w - 92, h - 76);
+  }
+
+  function drawVictoryText(text, x, y, maxWidth, lineHeight) {
+    const words = String(text).split(/\s+/);
+    let line = "";
+    let currentY = y;
+    for (const word of words) {
+      const nextLine = line ? `${line} ${word}` : word;
+      if (victoryCtx.measureText(nextLine).width > maxWidth && line) {
+        victoryCtx.fillText(line, x, currentY);
+        line = word;
+        currentY += lineHeight;
+      } else {
+        line = nextLine;
+      }
+    }
+    if (line) {
+      victoryCtx.fillText(line, x, currentY);
+    }
+  }
+
+  function drawVictoryPlanet(x, y, radius, accent) {
+    victoryCtx.save();
+    victoryCtx.translate(x, y);
+    victoryCtx.rotate(-0.22);
+    victoryCtx.strokeStyle = "rgba(255, 202, 79, 0.65)";
+    victoryCtx.lineWidth = 16;
+    victoryCtx.beginPath();
+    victoryCtx.ellipse(0, 0, radius * 1.55, radius * 0.45, 0, 0, Math.PI * 2);
+    victoryCtx.stroke();
+    victoryCtx.rotate(0.22);
+    const planet = victoryCtx.createRadialGradient(-32, -40, 10, 0, 0, radius);
+    planet.addColorStop(0, "#fff2a6");
+    planet.addColorStop(0.45, accent);
+    planet.addColorStop(1, "#20313a");
+    victoryCtx.fillStyle = planet;
+    victoryCtx.beginPath();
+    victoryCtx.arc(0, 0, radius, 0, Math.PI * 2);
+    victoryCtx.fill();
+    victoryCtx.restore();
+  }
+
+  function drawVictoryShip(x, y, accent) {
+    victoryCtx.save();
+    victoryCtx.translate(x, y);
+    victoryCtx.shadowColor = accent;
+    victoryCtx.shadowBlur = 32;
+    victoryCtx.fillStyle = "#2f7dff";
+    victoryCtx.beginPath();
+    victoryCtx.moveTo(0, -90);
+    victoryCtx.lineTo(84, 68);
+    victoryCtx.lineTo(0, 36);
+    victoryCtx.lineTo(-84, 68);
+    victoryCtx.closePath();
+    victoryCtx.fill();
+    victoryCtx.shadowBlur = 0;
+    victoryCtx.fillStyle = "#49e0ff";
+    victoryCtx.beginPath();
+    victoryCtx.arc(0, -14, 25, 0, Math.PI * 2);
+    victoryCtx.fill();
+    victoryCtx.fillStyle = "rgba(121, 242, 142, 0.82)";
+    victoryCtx.fillRect(-44, 64, 28, 72);
+    victoryCtx.fillRect(16, 64, 28, 72);
+    victoryCtx.restore();
+  }
+
+  function drawVictoryBadge(x, y, data) {
+    roundVictoryRect(x, y, 290, 120, 20);
+    victoryCtx.fillStyle = "rgba(5, 7, 11, 0.72)";
+    victoryCtx.fill();
+    victoryCtx.strokeStyle = "rgba(244, 247, 251, 0.18)";
+    victoryCtx.lineWidth = 2;
+    victoryCtx.stroke();
+    victoryCtx.textAlign = "left";
+    victoryCtx.fillStyle = "#ffca4f";
+    victoryCtx.font = "900 21px system-ui, sans-serif";
+    victoryCtx.fillText(data.world || "Deep Space", x + 24, y + 42);
+    victoryCtx.fillStyle = "#f4f7fb";
+    victoryCtx.font = "800 18px system-ui, sans-serif";
+    victoryCtx.fillText(data.friend || data.pilot || "Rescue Crew", x + 24, y + 76);
+    victoryCtx.fillStyle = "rgba(244, 247, 251, 0.64)";
+    victoryCtx.font = "800 15px system-ui, sans-serif";
+    victoryCtx.fillText(data.seconds ? `${data.seconds}s run` : "Boss battle moment", x + 24, y + 100);
+  }
+
+  function roundVictoryRect(x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    victoryCtx.beginPath();
+    victoryCtx.moveTo(x + r, y);
+    victoryCtx.lineTo(x + width - r, y);
+    victoryCtx.quadraticCurveTo(x + width, y, x + width, y + r);
+    victoryCtx.lineTo(x + width, y + height - r);
+    victoryCtx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    victoryCtx.lineTo(x + r, y + height);
+    victoryCtx.quadraticCurveTo(x, y + height, x, y + height - r);
+    victoryCtx.lineTo(x, y + r);
+    victoryCtx.quadraticCurveTo(x, y, x + r, y);
+    victoryCtx.closePath();
+  }
+
+  function victoryCardSharePayload() {
+    const data = state.victoryCardData || {};
+    return {
+      title: "Star Maze Dodger Victory Card",
+      text: `${SHARE_TEXT}\n${data.title || "Mission moment"}: ${formatCounter(data.score || state.score)} points on ${data.world || "deep space"}.`,
+      url: publicGameUrl(),
+    };
+  }
+
+  function publicGameUrl() {
+    const url = gameShareUrl();
+    return isWebShareUrl(url) ? url : GAME_URL;
+  }
+
+  function victoryCardBlob() {
+    return new Promise((resolve) => {
+      if (!ui.victoryCardCanvas?.toBlob) {
+        resolve(null);
+        return;
+      }
+      try {
+        ui.victoryCardCanvas.toBlob((blob) => resolve(blob), "image/png", 0.92);
+      } catch (error) {
+        resolve(null);
+      }
+    });
+  }
+
+  async function shareVictoryCard() {
+    if (!state.victoryCardData) {
+      return;
+    }
+
+    drawVictoryCard();
+    const payload = victoryCardSharePayload();
+    const nav = window.navigator || (typeof navigator !== "undefined" ? navigator : null);
+    const blob = await victoryCardBlob();
+    if (blob && typeof File === "function" && nav?.share && nav?.canShare) {
+      try {
+        const file = new File([blob], "star-maze-dodger-victory-card.png", { type: "image/png" });
+        const filePayload = { ...payload, files: [file] };
+        if (nav.canShare(filePayload)) {
+          await nav.share(filePayload);
+          showVictoryCardStatus("Shared the victory card. Nice launch.");
+          return;
+        }
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          return;
+        }
+      }
+    }
+
+    if (nav?.share && canNativeShare(nav, payload)) {
+      try {
+        await nav.share(payload);
+        showVictoryCardStatus("Shared the game link. Thanks for spreading Zack's game!");
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          return;
+        }
+      }
+    }
+
+    copyVictoryPayload(payload);
+  }
+
+  async function downloadVictoryCard() {
+    if (!state.victoryCardData) {
+      return;
+    }
+    drawVictoryCard();
+    const blob = await victoryCardBlob();
+    if (!blob || typeof document.createElement !== "function" || typeof URL === "undefined" || !URL.createObjectURL) {
+      copyVictoryPayload(victoryCardSharePayload());
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = "star-maze-dodger-victory-card.png";
+    document.body?.appendChild?.(link);
+    link.click();
+    link.remove?.();
+    URL.revokeObjectURL(objectUrl);
+    showVictoryCardStatus("Downloaded the victory card.");
+  }
+
+  function copyVictoryPayload(payload) {
+    const nav = window.navigator || (typeof navigator !== "undefined" ? navigator : null);
+    const text = `${payload.text}\n${payload.url}`;
+    if (nav?.clipboard?.writeText) {
+      nav.clipboard.writeText(text)
+        .then(() => showVictoryCardStatus("Copied the card text and game link."))
+        .catch(() => showVictoryCardStatus("Share unavailable here. Copy the game link from the address bar."));
+      return;
+    }
+    showVictoryCardStatus("Share unavailable here. Copy the game link from the address bar.");
+  }
+
+  function showVictoryCardStatus(message) {
+    if (ui.victoryCardStatus) {
+      ui.victoryCardStatus.textContent = message;
+    }
+  }
+
+  function isStandaloneApp() {
+    const nav = window.navigator || (typeof navigator !== "undefined" ? navigator : null);
+    return Boolean(
+      nav?.standalone ||
+      window.matchMedia?.("(display-mode: standalone)")?.matches
+    );
+  }
+
+  function isLocalFilePage() {
+    const href = window.location?.href || "";
+    return href.startsWith("file:");
+  }
+
+  function initPwa() {
+    const canInstallHere = !isStandaloneApp() && !isLocalFilePage();
+    state.installReady = canInstallHere;
+
+    if ("serviceWorker" in navigator && canInstallHere) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("service-worker.js").catch(() => {
+          // The game still runs normally if the app install cache is unavailable.
+        });
+      });
+    }
+
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      state.installReady = true;
+      updateHud();
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      state.installReady = false;
+      updateHud();
+    });
+  }
+
+  async function installApp() {
+    unlockAudio();
+    if (deferredInstallPrompt) {
+      const promptEvent = deferredInstallPrompt;
+      deferredInstallPrompt = null;
+      promptEvent.prompt();
+      try {
+        const choice = await promptEvent.userChoice;
+        if (choice?.outcome === "accepted") {
+          state.installReady = false;
+          state.toast = "Installed as an app";
+          state.messageTimer = 1.4;
+        } else {
+          state.installReady = true;
+          state.toast = "Install skipped";
+          state.messageTimer = 1.2;
+        }
+      } catch (error) {
+        state.installReady = true;
+      }
+      updateHud();
+      return;
+    }
+
+    state.toast = "iPhone: Share, then Add to Home Screen";
+    state.messageTimer = 2.6;
+    updateHud();
+  }
+
   function startOrResume() {
     if (state.mode === "shipPicker") {
       closeShipPicker();
+      return;
+    }
+    if (state.mode === "victoryCard") {
+      closeVictoryCardPanel();
+      return;
+    }
+    if (state.mode === "daily") {
+      closeDailyMissionPanel();
       return;
     }
     if (state.mode === "about") {
@@ -1749,7 +2580,10 @@
     if (!ui.audioPanel.hidden) {
       return;
     }
+    dismissInstructionsOverlay();
     dismissAboutOverlay();
+    dismissDailyOverlay();
+    dismissVictoryCardOverlay();
     state.audioReturnMode = state.mode;
     state.mode = "audio";
     keys.clear();
@@ -1871,8 +2705,11 @@
     ui.lives.textContent = String(state.lives);
     ui.score.textContent = String(state.score);
     ui.best.textContent = String(state.best);
-    ui.start.textContent = state.mode === "instructions" || state.mode === "audio" || state.mode === "map" || state.mode === "about" || state.mode === "shipPicker" ? "Close" : state.mode === "select" ? "Choose" : state.mode === "paused" ? "Paused" : state.mode === "playing" ? "Flying" : state.mode === "gameover" || state.mode === "won" ? "New Pilot" : "Launch";
+    ui.start.textContent = state.mode === "instructions" || state.mode === "audio" || state.mode === "map" || state.mode === "about" || state.mode === "shipPicker" || state.mode === "daily" || state.mode === "victoryCard" ? "Close" : state.mode === "select" ? "Choose" : state.mode === "paused" ? "Paused" : state.mode === "playing" ? "Flying" : state.mode === "gameover" || state.mode === "won" ? "New Pilot" : "Launch";
     ui.start.disabled = state.mode === "playing" || state.mode === "paused";
+    ui.daily.setAttribute("aria-pressed", String(state.mode === "daily" || state.daily.active));
+    ui.victoryCard.hidden = !state.victoryCardData;
+    ui.install.hidden = !state.installReady;
     ui.pause.setAttribute("aria-pressed", String(state.mode === "paused"));
     ui.pause.textContent = state.mode === "paused" ? "Resume" : "Pause";
     renderJourneyProgress();
@@ -3662,6 +4499,18 @@
       state.messageTimer = 1.35;
       state.toast = `${boss.name} defeated`;
       addBossExplosion(boss);
+      const bossWorld = state.daily.meta?.world || rescueWorldAt(currentFriendIndex());
+      setVictoryCard({
+        kind: "boss",
+        title: `${boss.name} Defeated`,
+        subtitle: "Boss cleared from the maze",
+        world: bossWorld.name,
+        pilot: state.pilot?.name || "Zack's pilot",
+        friend: "Boss battle",
+        score: state.score,
+        detail: `${boss.name} went down in a huge reactor blast.`,
+        accent: boss.color || "#ff5aa7",
+      });
       state.cameraShake = Math.max(state.cameraShake, 2.8);
       ping("bossBoom");
     } else {
@@ -3785,6 +4634,10 @@
     const bonus = Math.max(60, Math.round(420 - state.levelTime * 7));
     state.score += bonus;
     ping("gate");
+    if (state.daily.active) {
+      finishDailyMission();
+      return;
+    }
     const completedLevel = state.stage + 1;
     revealPuzzlePiece(completedLevel);
     if (completedLevel >= MAX_LEVELS) {
@@ -6032,13 +6885,48 @@
     ui.pilotHud.hidden = false;
     ui.pilotMiniAvatar.innerHTML = avatarHtml(state.pilot, true);
     ui.pilotName.textContent = state.pilot.name;
-    ui.pilotRank.textContent = `Pilot Lv ${state.pilotLevel} • ${state.raceProgress}/${FRIENDS_PER_RACE} friends`;
+    ui.pilotRank.textContent = state.daily.active && state.daily.meta
+      ? `Daily Mission • ${state.daily.meta.world.name}`
+      : `Pilot Lv ${state.pilotLevel} • ${state.raceProgress}/${FRIENDS_PER_RACE} friends`;
     ui.rescuedFriendStrip.innerHTML = friendStripHtml();
     ui.pilotHud.setAttribute("aria-label", `Open rescue map for ${state.pilot.name}`);
   }
 
   function renderJourneyProgress() {
     if (!ui.journeyProgress) {
+      return;
+    }
+
+    if (state.daily.active && state.daily.meta) {
+      const meta = state.daily.meta;
+      const dots = Array.from({ length: MAX_LEVELS }, (_, dotIndex) => {
+        const done = state.daily.completed || dotIndex < meta.stage;
+        const current = !state.daily.completed && dotIndex === meta.stage;
+        return `<span class="journey-dot ${done ? "done" : ""} ${current ? "current" : ""}" aria-hidden="true"></span>`;
+      }).join("");
+      ui.journeyProgress.setAttribute(
+        "aria-label",
+        `${meta.name}: ${state.daily.completed ? "complete" : "in progress"}. Monthly leaderboard ${monthLabel(meta.monthKey)}.`
+      );
+      ui.journeyProgress.innerHTML = `
+        <div class="journey-summary">
+          <span>Daily</span>
+          <strong>${state.daily.completed ? "1/1" : "0/1"}</strong>
+        </div>
+        <div class="journey-track daily-route">
+          <div class="journey-segment">
+            <span class="journey-world active" title="${meta.world.name}" style="--world-accent: ${meta.world.accent}; --world-glow: ${meta.world.glow}">
+              <span class="journey-planet planet-${meta.world.id}" aria-hidden="true"></span>
+              <span class="journey-world-label">${meta.world.name.split(" ")[0]}</span>
+            </span>
+            <span class="journey-dots" aria-hidden="true">${dots}</span>
+          </div>
+        </div>
+        <div class="journey-summary total">
+          <span>Month</span>
+          <strong>${monthLabel(meta.monthKey).split(" ")[0]}</strong>
+        </div>
+      `;
       return;
     }
 
@@ -6160,7 +7048,9 @@
   }
 
   function rescueCurrentFriend() {
+    const friendIndex = currentFriendIndex();
     const friend = currentFriend();
+    const world = rescueWorldAt(friendIndex);
     state.rescuedFriend = friend;
     if (state.pilot && state.raceProgress < FRIENDS_PER_RACE) {
       state.raceProgress += 1;
@@ -6172,6 +7062,17 @@
     state.score += 750;
     state.messageTimer = 1.6;
     state.toast = `${friend?.name || "Friend"} rescued`;
+    setVictoryCard({
+      kind: "rescue",
+      title: `${friend?.name || "Friend"} Rescued`,
+      subtitle: `${world.name} rescue complete`,
+      world: world.name,
+      pilot: state.pilot?.name || "Zack's pilot",
+      friend: friend?.name || "Rescued friend",
+      score: state.score,
+      detail: `${friend?.name || "A friend"} made it safely into the avatar crew bar.`,
+      accent: friend?.color || world.glow || "#79f28e",
+    });
     renderPilotHud();
     showRescueCelebration(friend);
   }
@@ -6242,6 +7143,8 @@
 
   function openRescueMap(followup = "resume") {
     dismissInstructionsForMap();
+    dismissDailyOverlay();
+    dismissVictoryCardOverlay();
     if (ui.rescueMapPanel.hidden) {
       state.mapReturnMode = state.mode;
     }
@@ -7627,6 +8530,8 @@
       return;
     }
     dismissAboutOverlay();
+    dismissDailyOverlay();
+    dismissVictoryCardOverlay();
     state.instructionsReturnMode = state.mode;
     state.mode = "instructions";
     keys.clear();
@@ -8142,6 +9047,29 @@
       return;
     }
 
+    if (state.mode === "daily") {
+      if (event.code === "Escape") {
+        event.preventDefault();
+        closeDailyMissionPanel();
+      } else if (event.code === "Enter") {
+        event.preventDefault();
+        startDailyMission();
+      } else if (direction || event.code === "Space") {
+        event.preventDefault();
+      }
+      return;
+    }
+
+    if (state.mode === "victoryCard") {
+      if (event.code === "Escape") {
+        event.preventDefault();
+        closeVictoryCardPanel();
+      } else if (direction || event.code === "Space" || event.code === "Enter") {
+        event.preventDefault();
+      }
+      return;
+    }
+
     if (event.code === "KeyI") {
       event.preventDefault();
       openInstructions();
@@ -8292,6 +9220,9 @@
 
   ui.start.addEventListener("click", startOrResume);
   ui.aboutAuthor.addEventListener("click", openAboutAuthor);
+  ui.daily.addEventListener("click", openDailyMissionPanel);
+  ui.victoryCard.addEventListener("click", openVictoryCardPanel);
+  ui.install.addEventListener("click", installApp);
   ui.pause.addEventListener("click", togglePause);
   ui.instructions.addEventListener("click", openInstructions);
   ui.reset.addEventListener("click", resetGame);
@@ -8320,6 +9251,12 @@
   ui.muteAudio.addEventListener("click", toggleMute);
   ui.musicVolume.addEventListener("input", (event) => setAudioVolume("music", event.target.value));
   ui.sfxVolume.addEventListener("input", (event) => setAudioVolume("sfx", event.target.value));
+  ui.closeDaily.addEventListener("click", closeDailyMissionPanel);
+  ui.startDaily.addEventListener("click", startDailyMission);
+  ui.refreshLeaders.addEventListener("click", () => loadMonthlyLeaderboard(todayDailyMission().monthKey));
+  ui.closeVictoryCard.addEventListener("click", closeVictoryCardPanel);
+  ui.shareVictoryCard.addEventListener("click", shareVictoryCard);
+  ui.downloadVictoryCard.addEventListener("click", downloadVictoryCard);
   ui.shipChoices.addEventListener("click", (event) => {
     const button = event.target.closest("[data-ship]");
     if (!button) {
@@ -8343,6 +9280,7 @@
   });
 
   updateAudioControls();
+  initPwa();
   newRun("select");
   trackTraffic("visit");
   requestAnimationFrame(loop);

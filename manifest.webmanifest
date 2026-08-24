@@ -1,0 +1,19 @@
+{
+  "name": "Star Maze Dodger",
+  "short_name": "Star Maze",
+  "description": "Zack's reactor-core rescue run.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#05070b",
+  "theme_color": "#071016",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
