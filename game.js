@@ -5556,9 +5556,27 @@
     }).join("");
   }
 
+  function avatarAnimationVars() {
+    const bobDuration = 4.8 + Math.random() * 2.6;
+    const blinkDuration = 4.2 + Math.random() * 4.5;
+    const pieceDuration = 3.8 + Math.random() * 2.8;
+    const auraDuration = 3.6 + Math.random() * 2.4;
+    return [
+      `--avatar-bob-duration: ${bobDuration.toFixed(2)}s`,
+      `--avatar-bob-delay: ${(-Math.random() * bobDuration).toFixed(2)}s`,
+      `--avatar-blink-duration: ${blinkDuration.toFixed(2)}s`,
+      `--avatar-blink-delay: ${(-Math.random() * blinkDuration).toFixed(2)}s`,
+      `--avatar-piece-duration: ${pieceDuration.toFixed(2)}s`,
+      `--avatar-piece-delay: ${(-Math.random() * pieceDuration).toFixed(2)}s`,
+      `--avatar-aura-duration: ${auraDuration.toFixed(2)}s`,
+      `--avatar-aura-delay: ${(-Math.random() * auraDuration).toFixed(2)}s`,
+    ].join("; ");
+  }
+
   function avatarHtml(pilot, mini = false) {
+    const animationVars = avatarAnimationVars();
     return `
-      <span class="alien-avatar alien-avatar--${pilot.style}${mini ? " mini" : ""}" style="--avatar-main: ${pilot.color}; --avatar-accent: ${pilot.accent}">
+      <span class="alien-avatar alien-avatar--${pilot.style}${mini ? " mini" : ""}" style="--avatar-main: ${pilot.color}; --avatar-accent: ${pilot.accent}; ${animationVars}">
         <span class="avatar-aura"></span>
         <span class="avatar-halo"></span>
         <span class="avatar-shoulder left"></span>

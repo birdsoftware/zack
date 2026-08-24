@@ -699,6 +699,7 @@ canvas {
 .alien-avatar {
   --avatar-main: var(--cyan);
   --avatar-accent: var(--amber);
+  --avatar-piece-x: 0px;
   position: relative;
   width: 92px;
   height: 92px;
@@ -714,11 +715,15 @@ canvas {
     inset 0 10px 14px rgba(255, 255, 255, 0.18);
   isolation: isolate;
   overflow: visible;
+  transform-origin: 50% 78%;
+  animation: avatar-body-float var(--avatar-bob-duration, 5.8s) ease-in-out infinite;
+  animation-delay: var(--avatar-bob-delay, -1.1s);
 }
 
 .alien-avatar.mini {
   width: 42px;
   height: 42px;
+  animation-name: avatar-mini-body-float;
 }
 
 .alien-avatar::before,
@@ -751,6 +756,164 @@ canvas {
 .avatar-blade {
   opacity: 0;
   pointer-events: none;
+}
+
+.avatar-aura {
+  animation: avatar-aura-pulse var(--avatar-aura-duration, 4.6s) ease-in-out infinite;
+  animation-delay: var(--avatar-aura-delay, -1.2s);
+}
+
+.avatar-eye,
+.avatar-pupil {
+  transform-origin: 50% 50%;
+  animation: avatar-blink var(--avatar-blink-duration, 6.4s) ease-in-out infinite;
+  animation-delay: var(--avatar-blink-delay, -2s);
+}
+
+.avatar-pupil {
+  animation-name: avatar-pupil-blink;
+}
+
+.avatar-arm,
+.avatar-shoulder,
+.avatar-frill,
+.avatar-gill,
+.avatar-blade,
+.avatar-spine {
+  animation: avatar-piece-drift var(--avatar-piece-duration, 5.2s) ease-in-out infinite;
+  animation-delay: var(--avatar-piece-delay, -1.4s);
+}
+
+.avatar-arm.left,
+.avatar-shoulder.left,
+.avatar-frill.left,
+.avatar-gill.left,
+.avatar-blade.left {
+  --avatar-piece-x: -1.2px;
+}
+
+.avatar-arm.right,
+.avatar-shoulder.right,
+.avatar-frill.right,
+.avatar-gill.right,
+.avatar-blade.right {
+  --avatar-piece-x: 1.2px;
+}
+
+.avatar-spine.top {
+  --avatar-piece-x: 0.7px;
+}
+
+.avatar-spine.mid {
+  --avatar-piece-x: 1px;
+}
+
+.avatar-spine.low {
+  --avatar-piece-x: -0.8px;
+}
+
+.avatar-mark,
+.avatar-sigil,
+.avatar-chest {
+  animation: avatar-core-pulse var(--avatar-aura-duration, 4.6s) ease-in-out infinite;
+  animation-delay: var(--avatar-aura-delay, -1.2s);
+}
+
+@keyframes avatar-body-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  38% {
+    transform: translateY(-2px) scale(1.012, 0.994);
+  }
+
+  72% {
+    transform: translateY(1px) scale(0.996, 1.009);
+  }
+}
+
+@keyframes avatar-mini-body-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-1px) scale(1.01, 0.995);
+  }
+}
+
+@keyframes avatar-aura-pulse {
+  0%,
+  100% {
+    opacity: 0.76;
+    scale: 0.985;
+  }
+
+  48% {
+    opacity: 1;
+    scale: 1.035;
+  }
+}
+
+@keyframes avatar-blink {
+  0%,
+  86%,
+  91%,
+  96%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  88%,
+  94% {
+    transform: scaleY(0.1);
+  }
+}
+
+@keyframes avatar-pupil-blink {
+  0%,
+  86%,
+  91%,
+  96%,
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+
+  88%,
+  94% {
+    transform: scaleY(0.08);
+    opacity: 0.25;
+  }
+}
+
+@keyframes avatar-piece-drift {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  36% {
+    translate: var(--avatar-piece-x, 0px) -1px;
+  }
+
+  72% {
+    translate: calc(var(--avatar-piece-x, 0px) * -0.7) 1px;
+  }
+}
+
+@keyframes avatar-core-pulse {
+  0%,
+  100% {
+    scale: 1;
+  }
+
+  50% {
+    scale: 1.045;
+  }
 }
 
 .alien-avatar::before {
@@ -1235,6 +1398,7 @@ canvas {
   opacity: 1;
   background: linear-gradient(180deg, #ffb07a, #5b1c12);
   filter: drop-shadow(0 0 4px rgba(255, 90, 167, 0.35));
+  animation-name: avatar-spine-twitch;
 }
 
 .alien-avatar--brood .avatar-spine.top {
@@ -1292,6 +1456,7 @@ canvas {
   border-top: 3px solid #ffb07a;
   border-bottom: 3px solid rgba(255, 90, 167, 0.68);
   border-radius: 80% 20% 80% 20%;
+  animation-name: avatar-tentacle-drift;
 }
 
 .alien-avatar--brood .avatar-arm.left {
@@ -1338,6 +1503,63 @@ canvas {
 .alien-avatar.mini {
   width: 42px;
   height: 42px;
+}
+
+@keyframes avatar-spine-twitch {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  18% {
+    translate: var(--avatar-piece-x, 0px) -1px;
+  }
+
+  22% {
+    translate: calc(var(--avatar-piece-x, 0px) * -0.5) 1px;
+  }
+
+  60% {
+    translate: 0 0;
+  }
+}
+
+@keyframes avatar-tentacle-drift {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  30% {
+    translate: var(--avatar-piece-x, 0px) -2px;
+  }
+
+  68% {
+    translate: calc(var(--avatar-piece-x, 0px) * -1) 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alien-avatar,
+  .alien-avatar::before,
+  .alien-avatar::after,
+  .avatar-aura,
+  .avatar-halo,
+  .avatar-shoulder,
+  .avatar-arm,
+  .avatar-spine,
+  .avatar-frill,
+  .avatar-faceplate,
+  .avatar-chest,
+  .avatar-eye,
+  .avatar-pupil,
+  .avatar-gill,
+  .avatar-mouth,
+  .avatar-mark,
+  .avatar-sigil,
+  .avatar-blade {
+    animation: none !important;
+  }
 }
 
 .about-author-head {
