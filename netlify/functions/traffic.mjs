@@ -1,4 +1,4 @@
-const { getStore } = require("@netlify/blobs");
+import { getStore } from "@netlify/blobs";
 
 const STORE_NAME = "zack-traffic";
 const TOTALS_KEY = "totals";
@@ -11,16 +11,11 @@ const JSON_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-function wantsDebug(event) {
-  return event.queryStringParameters && event.queryStringParameters.debug === "1";
-}
-
-function response(statusCode, body) {
-  return {
-    statusCode,
+function response(status, body) {
+  return new Response(JSON.stringify(body), {
+    status,
     headers: JSON_HEADERS,
-    body: JSON.stringify(body),
-  };
+  });
 }
 
 function normalizeCounter(value) {
@@ -99,24 +94,24 @@ async function incrementTotals(eventName) {
   return next;
 }
 
-exports.handler = async (event) => {
+export default async function traffic(request) {
   try {
-    if (event.httpMethod === "OPTIONS") {
-      return { statusCode: 204, headers: JSON_HEADERS, body: "" };
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: JSON_HEADERS });
     }
 
-    if (event.httpMethod === "GET") {
+    if (request.method === "GET") {
       const { totals } = await readTotals(openTrafficStore());
       return response(200, { ok: true, ...totals });
     }
 
-    if (event.httpMethod !== "POST") {
+    if (request.method !== "POST") {
       return response(405, { ok: false, error: "Method not allowed" });
     }
 
     let payload;
     try {
-      payload = JSON.parse(event.body || "{}");
+      payload = await request.json();
     } catch (error) {
       return response(400, { ok: false, error: "Invalid JSON" });
     }
@@ -129,14 +124,6 @@ exports.handler = async (event) => {
     return response(200, { ok: true, ...totals });
   } catch (error) {
     console.error("Traffic counter failed", error);
-    const body = { ok: false, error: "Traffic counter unavailable" };
-
-    if (wantsDebug(event)) {
-      body.detail = error && error.message ? error.message : String(error);
-      body.name = error && error.name ? error.name : "Error";
-      body.hasSiteId = Boolean(process.env.NETLIFY_SITE_ID);
-    }
-
-    return response(500, body);
+    return response(500, { ok: false, error: "Traffic counter unavailable" });
   }
-};
+}

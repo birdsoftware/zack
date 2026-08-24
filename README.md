@@ -29,7 +29,7 @@ The About page shows sitewide visits and game launches from `/.netlify/functions
 - `styles.css` - layout and interface styling
 - `game.js` - game logic, drawing, audio, and controls
 - `netlify.toml` - Netlify static hosting config
-- `netlify/functions/traffic.js` - shared Netlify traffic counter
+- `netlify/functions/traffic.mjs` - shared Netlify traffic counter
 - `package.json` - Netlify Function dependency list
 
 ## Privacy
