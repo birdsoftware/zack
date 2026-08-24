@@ -42,6 +42,7 @@
     shipChoices: document.getElementById("shipChoices"),
     instructionsPanel: document.getElementById("instructionsPanel"),
     closeInstructions: document.getElementById("closeInstructionsBtn"),
+    closeInstructionsBottom: document.getElementById("closeInstructionsBottomBtn"),
     aboutAuthorPanel: document.getElementById("aboutAuthorPanel"),
     closeAboutAuthor: document.getElementById("closeAboutAuthorBtn"),
     closeAboutAuthorBottom: document.getElementById("closeAboutAuthorBottomBtn"),
@@ -6764,6 +6765,7 @@
     setMapView("archive", Number(button.dataset.memoryIndex));
   });
   ui.closeInstructions.addEventListener("click", closeInstructions);
+  ui.closeInstructionsBottom.addEventListener("click", closeInstructions);
   ui.shipChoices.addEventListener("click", (event) => {
     const button = event.target.closest("[data-ship]");
     if (!button) {

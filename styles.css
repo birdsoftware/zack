@@ -1609,6 +1609,10 @@ canvas {
   min-height: 36px;
 }
 
+.close-instructions-bottom {
+  display: none;
+}
+
 .instructions-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2405,7 +2409,7 @@ canvas {
 
 @media (max-width: 720px) {
   .game-shell {
-    --mobile-panel-bottom: calc(var(--floating-banner-buffer) + env(safe-area-inset-bottom) + 72px);
+    --mobile-panel-bottom: calc(var(--floating-banner-buffer) + env(safe-area-inset-bottom) + 12px);
   }
 
   .pilot-panel,
@@ -2468,6 +2472,82 @@ canvas {
     padding-right: 3px;
   }
 
+  .instructions-panel {
+    background: rgba(3, 5, 8, 0.74);
+  }
+
+  .instructions-card {
+    gap: 0;
+    padding: 12px;
+  }
+
+  .instructions-head {
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .instructions-head > div {
+    min-width: 0;
+  }
+
+  .instructions-kicker {
+    font-size: 0.64rem;
+  }
+
+  .close-instructions {
+    min-height: 40px;
+    padding-inline: 13px;
+    font-size: 0.78rem;
+  }
+
+  .instructions-grid {
+    flex: 1 1 auto;
+    display: block;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 3px 4px 0;
+  }
+
+  .instructions-grid section {
+    min-height: 0;
+    margin-bottom: 8px;
+    padding: 9px 10px;
+  }
+
+  .instructions-grid h3 {
+    margin-bottom: 4px;
+    font-size: 0.86rem;
+  }
+
+  .instructions-grid p,
+  .instructions-grid ul {
+    font-size: 0.76rem;
+    line-height: 1.28;
+  }
+
+  .instructions-grid ul {
+    padding-left: 15px;
+  }
+
+  .instructions-grid li + li {
+    margin-top: 2px;
+  }
+
+  .close-instructions-bottom {
+    flex: 0 0 auto;
+    display: block;
+    width: 100%;
+    min-height: 42px;
+    margin-top: 8px;
+    border-color: rgba(73, 224, 255, 0.48);
+    background:
+      radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.22), transparent 28%),
+      linear-gradient(135deg, rgba(73, 224, 255, 0.24), rgba(255, 202, 79, 0.16));
+  }
+
   .pilot-choices,
   .upgrade-choices {
     grid-template-columns: 1fr;
@@ -2519,5 +2599,41 @@ canvas {
 
   .ship-choices {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .instructions-card {
+    padding: 10px;
+  }
+
+  .instructions-card h2 {
+    font-size: 1.05rem;
+  }
+
+  .instructions-head {
+    margin-bottom: 7px;
+    padding-bottom: 7px;
+  }
+
+  .close-instructions {
+    min-height: 38px;
+    padding-inline: 11px;
+  }
+
+  .instructions-grid section {
+    margin-bottom: 7px;
+    padding: 8px 9px;
+  }
+
+  .instructions-grid p,
+  .instructions-grid ul {
+    font-size: 0.74rem;
+    line-height: 1.24;
+  }
+
+  .close-instructions-bottom {
+    min-height: 40px;
+    margin-top: 7px;
   }
 }
