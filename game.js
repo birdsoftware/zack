@@ -99,6 +99,10 @@
   const SHIP_CRUMB_LIFE = 3;
   const SHIP_CRUMB_INTERVAL = 0.08;
   const MAX_SHIP_CRUMBS = 80;
+  const OVERDRIVE_SECONDS = 10;
+  const OVERDRIVE_RELOAD_TIME = 0.095;
+  const OVERDRIVE_FLAME_INTERVAL = 0.026;
+  const MAX_OVERDRIVE_FLAMES = 130;
   const WORM_ARM_REACH_BLOCKS = 5;
   const WORM_ARM_WIDTH = 10;
   const STORAGE_KEY = "star-maze-dodger-best";
@@ -176,6 +180,7 @@
   let sfxGain = null;
   let musicGain = null;
   let musicTimer = null;
+  let musicIntervalMs = 0;
   let musicStep = 0;
   let level = null;
   let player = null;
@@ -958,6 +963,10 @@
       autoBoostHold: 0,
       autoBoostX: 0,
       autoBoostY: 0,
+      overdriveTimer: 0,
+      overdriveMax: OVERDRIVE_SECONDS,
+      overdriveFlames: [],
+      overdriveFlameTimer: 0,
     };
     state.stage = stage;
     state.levelTime = 0;
@@ -1009,6 +1018,18 @@
 
     boosts.forEach((boost) => reserved.add(cellKey(boost)));
 
+    const [crystalCell] = pickOpenCells(openCells, rng, 1, reserved, (cell) => {
+      return cell.distance > 12 && manhattan(cell, gate) > 5 && countOpenNeighbors(grid, cell.c, cell.r) >= 2;
+    });
+    const overdriveCrystal = crystalCell ? {
+      ...cellCenter(crystalCell.c, crystalCell.r),
+      c: crystalCell.c,
+      r: crystalCell.r,
+      taken: false,
+      spin: rng.next() * Math.PI * 2,
+      hue: rng.int(0, 359),
+    } : null;
+
     const sentries = makeSentries(grid, openCells, rng, Math.min(2 + stage + Math.floor(challenge / 8), 7), reserved)
       .map((sentry, index) => ({
         ...sentry,
@@ -1030,6 +1051,7 @@
       gatePosition: cellCenter(gate.c, gate.r),
       cores,
       boosts,
+      overdriveCrystal,
       sentries,
       boss,
       bosses,
@@ -1564,7 +1586,7 @@
     const now = audioContext.currentTime;
     masterGain.gain.setTargetAtTime(state.muted ? 0.0001 : 0.86, now, 0.025);
     sfxGain.gain.setTargetAtTime(0.95 * state.sfxVolume, now, 0.02);
-    musicGain.gain.setTargetAtTime(0.12 * state.musicVolume, now, 0.04);
+    musicGain.gain.setTargetAtTime((musicOverdriveActive() ? 0.17 : 0.12) * state.musicVolume, now, 0.04);
   }
 
   function openShipPicker() {
@@ -1655,6 +1677,7 @@
     state.messageTimer = Math.max(0, state.messageTimer - dt);
     player.invulnerable = Math.max(0, player.invulnerable - dt);
     player.reload = Math.max(0, player.reload - dt);
+    updateOverdrivePower(dt);
     fireHeldBlaster();
     updateSentries(dt);
     updateBoss(dt);
@@ -1671,6 +1694,43 @@
     }
     testHazards();
     testGate();
+  }
+
+  function isOverdriveActive() {
+    return Boolean(player && player.overdriveTimer > 0);
+  }
+
+  function musicOverdriveActive() {
+    return state.mode === "playing" && isOverdriveActive();
+  }
+
+  function overdriveRatio() {
+    if (!player || !player.overdriveMax) {
+      return 0;
+    }
+    return Math.max(0, Math.min(1, player.overdriveTimer / player.overdriveMax));
+  }
+
+  function updateOverdrivePower(dt) {
+    if (!player) {
+      return;
+    }
+
+    const wasActive = isOverdriveActive();
+    if (player.overdriveTimer > 0) {
+      player.overdriveTimer = Math.max(0, player.overdriveTimer - dt);
+      player.boost = 100;
+    }
+
+    updateOverdriveFlames(dt);
+
+    if (wasActive && !isOverdriveActive()) {
+      state.messageTimer = 0.9;
+      state.toast = "Overdrive cooling";
+      applyAudioMix();
+      refreshMusicTempo();
+      updateHud();
+    }
   }
 
   function updateSentries() {
@@ -2202,11 +2262,16 @@
 
     const stickyFactor = stickySlowFactorAt(player.x, player.y);
     const autoBoosting = updateAutoBoostHold(dt, dx, dy);
-    const boosting = (keys.has("boost") || autoBoosting) && player.boost > 2 && (dx || dy);
+    const overdriving = isOverdriveActive();
+    const boosting = (dx || dy) && (overdriving || ((keys.has("boost") || autoBoosting) && player.boost > 2));
     const speed = (player.baseSpeed + state.loadout.speedBonus) * stickyFactor * (boosting ? state.loadout.boostMultiplier : 1);
     if (boosting) {
-      player.boost = Math.max(0, player.boost - dt * state.loadout.boostBurn);
-      pushTrail(0.95);
+      if (overdriving) {
+        player.boost = 100;
+      } else {
+        player.boost = Math.max(0, player.boost - dt * state.loadout.boostBurn);
+      }
+      pushTrail(overdriving ? 1.25 : 0.95);
     } else {
       player.boost = Math.min(100, player.boost + dt * state.loadout.boostRegen);
       if (dx || dy) {
@@ -2226,6 +2291,57 @@
       dot.y -= Math.sin(player.angle) * dt * 12;
     });
     player.trail = player.trail.filter((dot) => dot.life > 0);
+  }
+
+  function updateOverdriveFlames(dt) {
+    if (!player.overdriveFlames) {
+      player.overdriveFlames = [];
+    }
+
+    for (const flame of player.overdriveFlames) {
+      flame.life -= dt;
+      flame.x += flame.vx * dt;
+      flame.y += flame.vy * dt;
+      flame.vx *= 0.972;
+      flame.vy *= 0.972;
+      flame.spin += dt * flame.spinSpeed;
+    }
+    player.overdriveFlames = player.overdriveFlames.filter((flame) => flame.life > 0);
+
+    if (!isOverdriveActive() || state.mode !== "playing") {
+      player.overdriveFlameTimer = Math.min(OVERDRIVE_FLAME_INTERVAL, player.overdriveFlameTimer || 0);
+      return;
+    }
+
+    player.overdriveFlameTimer -= dt;
+    while (player.overdriveFlameTimer <= 0) {
+      spawnOverdriveFlame();
+      player.overdriveFlameTimer += OVERDRIVE_FLAME_INTERVAL;
+    }
+  }
+
+  function spawnOverdriveFlame() {
+    const back = player.angle + Math.PI;
+    const side = player.angle + Math.PI * 0.5;
+    const spread = (Math.random() - 0.5) * 22;
+    const burst = 58 + Math.random() * 88;
+    const sidePush = (Math.random() - 0.5) * 34;
+    const life = 0.5 + Math.random() * 0.42;
+    player.overdriveFlames.push({
+      x: player.x + Math.cos(back) * (15 + Math.random() * 9) + Math.cos(side) * spread,
+      y: player.y + Math.sin(back) * (15 + Math.random() * 9) + Math.sin(side) * spread,
+      vx: Math.cos(back) * burst + Math.cos(side) * sidePush,
+      vy: Math.sin(back) * burst + Math.sin(side) * sidePush,
+      life,
+      maxLife: life,
+      size: 8 + Math.random() * 14,
+      color: overdriveColor(performance.now(), Math.random() * 160),
+      spin: Math.random() * Math.PI * 2,
+      spinSpeed: 5 + Math.random() * 8,
+    });
+    if (player.overdriveFlames.length > MAX_OVERDRIVE_FLAMES) {
+      player.overdriveFlames.splice(0, player.overdriveFlames.length - MAX_OVERDRIVE_FLAMES);
+    }
   }
 
   function updateShipCrumbs(dt, dx, dy) {
@@ -2649,7 +2765,7 @@
     }
   }
 
-  function fireBullet() {
+  function fireBullet(options = {}) {
     if (state.mode !== "playing") {
       return;
     }
@@ -2658,28 +2774,35 @@
       return;
     }
 
+    const overdriving = isOverdriveActive();
+    const now = performance.now();
     const angles = shotAngles(player.angle, state.loadout.spread);
-    for (const angle of angles) {
+    angles.forEach((angle, index) => {
+      const color = overdriving ? overdriveColor(now, index * 72) : state.loadout.bulletColor;
       level.bullets.push({
         x: player.x + Math.cos(angle) * 18,
         y: player.y + Math.sin(angle) * 18,
-        vx: Math.cos(angle) * state.loadout.bulletSpeed,
-        vy: Math.sin(angle) * state.loadout.bulletSpeed,
-        r: state.loadout.bulletRadius,
-        life: state.loadout.bulletLife,
-        pierce: state.loadout.pierce,
-        color: state.loadout.bulletColor,
+        vx: Math.cos(angle) * (state.loadout.bulletSpeed + (overdriving ? 110 : 0)),
+        vy: Math.sin(angle) * (state.loadout.bulletSpeed + (overdriving ? 110 : 0)),
+        r: state.loadout.bulletRadius + (overdriving ? 1.6 : 0),
+        life: state.loadout.bulletLife + (overdriving ? 0.18 : 0),
+        pierce: overdriving ? Math.max(1, state.loadout.pierce) : state.loadout.pierce,
+        color,
+        flame: overdriving,
+        angle,
       });
+    });
+    player.reload = overdriving ? Math.min(state.loadout.reloadTime, OVERDRIVE_RELOAD_TIME) : state.loadout.reloadTime;
+    if (!options.silent && !overdriving) {
+      state.messageTimer = 0.45;
+      state.toast = "Blaster";
     }
-    player.reload = state.loadout.reloadTime;
-    state.messageTimer = 0.45;
-    state.toast = "Blaster";
-    ping("shoot");
+    ping(overdriving ? "overdriveShot" : "shoot");
   }
 
   function fireHeldBlaster() {
-    if (state.mode === "playing" && keys.has("shoot")) {
-      fireBullet();
+    if (state.mode === "playing" && (keys.has("shoot") || isOverdriveActive())) {
+      fireBullet({ silent: isOverdriveActive() });
     }
   }
 
@@ -3018,6 +3141,9 @@
     if (level.boosts.some((boost) => !boost.taken && cellKey(boost) === key)) {
       return true;
     }
+    if (level.overdriveCrystal && !level.overdriveCrystal.taken && cellKey(level.overdriveCrystal) === key) {
+      return true;
+    }
     if (level.blackHoles.some((blackHole) => cellKey(blackHole) === key)) {
       return true;
     }
@@ -3250,6 +3376,13 @@
   }
 
   function collectItems() {
+    const crystal = level.overdriveCrystal;
+    if (crystal && !crystal.taken && distance(player, crystal) < 24) {
+      crystal.taken = true;
+      activateOverdriveCrystal();
+      return;
+    }
+
     for (const core of level.cores) {
       if (!core.collected && distance(player, core) < 21) {
         core.collected = true;
@@ -3272,6 +3405,23 @@
         updateHud();
       }
     }
+  }
+
+  function activateOverdriveCrystal() {
+    player.overdriveTimer = OVERDRIVE_SECONDS;
+    player.overdriveMax = OVERDRIVE_SECONDS;
+    player.overdriveFlameTimer = 0;
+    player.reload = 0;
+    player.boost = 100;
+    state.score += 120 + state.stage * 20;
+    state.messageTimer = 1.35;
+    state.toast = "Crystal Overdrive!";
+    state.cameraShake = Math.max(state.cameraShake, 0.75);
+    addBurst(player.x, player.y, overdriveColor(performance.now()), 32);
+    ping("overdrive");
+    applyAudioMix();
+    refreshMusicTempo();
+    updateHud();
   }
 
   function testHazards() {
@@ -3352,6 +3502,7 @@
     drawWallAftermath(time);
     drawGate(time);
     drawBoosts(time);
+    drawOverdriveCrystal(time);
     drawCores(time);
     drawSentries(time);
     drawBoss(time);
@@ -3911,6 +4062,60 @@
     }
   }
 
+  function drawOverdriveCrystal(time) {
+    const crystal = level.overdriveCrystal;
+    if (!crystal || crystal.taken) {
+      return;
+    }
+
+    const pulse = 0.5 + Math.sin(time * 0.01 + crystal.spin) * 0.5;
+    const color = overdriveColor(time, crystal.hue);
+    ctx.save();
+    ctx.translate(crystal.x, crystal.y);
+    ctx.rotate(crystal.spin + time * 0.0026);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.18 + pulse * 0.18;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, 25 + pulse * 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(0, -17);
+    ctx.lineTo(12, -4);
+    ctx.lineTo(8, 13);
+    ctx.lineTo(0, 19);
+    ctx.lineTo(-8, 13);
+    ctx.lineTo(-12, -4);
+    ctx.closePath();
+    ctx.fillStyle = `hsla(${(crystal.hue + time * 0.12) % 360}, 96%, 64%, 0.38)`;
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.74)";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(0, -14);
+    ctx.lineTo(0, 15);
+    ctx.moveTo(-9, -3);
+    ctx.lineTo(9, -3);
+    ctx.stroke();
+
+    for (let i = 0; i < 6; i += 1) {
+      const angle = i * Math.PI / 3 - time * 0.003;
+      ctx.fillStyle = overdriveColor(time, crystal.hue + i * 45);
+      ctx.globalAlpha = 0.55 + pulse * 0.3;
+      ctx.beginPath();
+      ctx.arc(Math.cos(angle) * 30, Math.sin(angle) * 30, 2.2 + pulse * 1.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawSentries(time) {
     for (const sentry of level.sentries) {
       ctx.save();
@@ -4381,6 +4586,30 @@
     for (const bullet of level.bullets) {
       ctx.save();
       ctx.translate(bullet.x, bullet.y);
+      if (bullet.flame) {
+        ctx.rotate(bullet.angle || Math.atan2(bullet.vy, bullet.vx));
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = bullet.color || overdriveColor();
+        ctx.beginPath();
+        ctx.ellipse(-10, 0, bullet.r + 12, bullet.r + 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(9, 0);
+        ctx.lineTo(-13, -8);
+        ctx.lineTo(-8, 0);
+        ctx.lineTo(-13, 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#ffca4f";
+        ctx.globalAlpha = 0.72;
+        ctx.beginPath();
+        ctx.ellipse(-3, 0, bullet.r + 2, bullet.r * 0.72, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        continue;
+      }
       ctx.fillStyle = bullet.color || state.loadout.bulletColor;
       ctx.globalAlpha = 0.95;
       ctx.beginPath();
@@ -4418,6 +4647,7 @@
 
   function drawPlayer(time) {
     drawShipCrumbs(time);
+    drawOverdriveFlames(time);
 
     ctx.save();
     for (const dot of player.trail) {
@@ -4469,6 +4699,34 @@
     ctx.restore();
   }
 
+  function drawOverdriveFlames(time) {
+    if (!player.overdriveFlames?.length) {
+      return;
+    }
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const flame of player.overdriveFlames) {
+      const alpha = Math.max(0, flame.life / flame.maxLife);
+      const wobble = 0.75 + Math.sin(time * 0.018 + flame.spin) * 0.22;
+      ctx.save();
+      ctx.translate(flame.x, flame.y);
+      ctx.rotate(flame.spin + time * 0.004);
+      ctx.globalAlpha = alpha * 0.68;
+      ctx.fillStyle = flame.color;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, flame.size * (0.52 + alpha * 0.55), flame.size * wobble, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = alpha * 0.34;
+      ctx.fillStyle = "#ffca4f";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, flame.size * 0.34, flame.size * 0.52, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
   function drawShipAvatar(time, flicker) {
     const avatar = SHIP_AVATARS.find((ship) => ship.id === state.shipAvatar)?.id || "dart";
     if (avatar === "manta") {
@@ -4483,7 +4741,7 @@
   }
 
   function drawDartShip(time, flicker) {
-    ctx.fillStyle = state.loadout.paint;
+    ctx.fillStyle = shipPaintColor(time);
     ctx.beginPath();
     ctx.moveTo(16, 0);
     ctx.lineTo(-12, -10);
@@ -4491,13 +4749,13 @@
     ctx.lineTo(-12, 10);
     ctx.closePath();
     ctx.fill();
-    strokeShipHull(flicker);
-    drawShipCockpit(1, 0, 6, 4);
+    strokeShipHull(flicker, time);
+    drawShipCockpit(1, 0, 6, 4, time);
     drawShipFlame(time, -12, 0, 1);
   }
 
   function drawMantaShip(time, flicker) {
-    ctx.fillStyle = state.loadout.paint;
+    ctx.fillStyle = shipPaintColor(time);
     ctx.beginPath();
     ctx.moveTo(18, 0);
     ctx.lineTo(3, -13);
@@ -4507,34 +4765,34 @@
     ctx.lineTo(3, 13);
     ctx.closePath();
     ctx.fill();
-    strokeShipHull(flicker);
-    drawShipCockpit(2, 0, 5.5, 4.2);
+    strokeShipHull(flicker, time);
+    drawShipCockpit(2, 0, 5.5, 4.2, time);
     drawShipWingGlow(time, -3, -9);
     drawShipWingGlow(time, -3, 9);
     drawShipFlame(time, -16, 0, 0.92);
   }
 
   function drawBeetleShip(time, flicker) {
-    ctx.fillStyle = state.loadout.paint;
+    ctx.fillStyle = shipPaintColor(time);
     ctx.beginPath();
     ctx.ellipse(1, 0, 17, 12, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
     ctx.fillRect(-3, -10, 2, 20);
-    strokeShipHull(flicker);
-    ctx.fillStyle = state.loadout.trim;
+    strokeShipHull(flicker, time);
+    ctx.fillStyle = shipTrimColor(time);
     ctx.globalAlpha = flicker ? 0.25 : 0.48;
     ctx.beginPath();
     ctx.ellipse(-4, -12, 12, 4, -0.22, 0, Math.PI * 2);
     ctx.ellipse(-4, 12, 12, 4, 0.22, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = flicker ? 0.52 : 1;
-    drawShipCockpit(5, 0, 5, 5);
+    drawShipCockpit(5, 0, 5, 5, time);
     drawShipFlame(time, -15, 0, 0.82);
   }
 
   function drawFangShip(time, flicker) {
-    ctx.fillStyle = state.loadout.paint;
+    ctx.fillStyle = shipPaintColor(time);
     ctx.beginPath();
     ctx.moveTo(18, -8);
     ctx.lineTo(0, -10);
@@ -4546,9 +4804,9 @@
     ctx.lineTo(6, 0);
     ctx.closePath();
     ctx.fill();
-    strokeShipHull(flicker);
-    drawShipCockpit(0, 0, 4.5, 4);
-    ctx.strokeStyle = state.loadout.cockpit;
+    strokeShipHull(flicker, time);
+    drawShipCockpit(0, 0, 4.5, 4, time);
+    ctx.strokeStyle = shipCockpitColor(time);
     ctx.lineWidth = 2;
     ctx.globalAlpha = flicker ? 0.32 : 0.78;
     ctx.beginPath();
@@ -4561,15 +4819,15 @@
     drawShipFlame(time, -12, 0, 1.1);
   }
 
-  function strokeShipHull(flicker) {
-    ctx.strokeStyle = state.loadout.trim;
+  function strokeShipHull(flicker, time = performance.now()) {
+    ctx.strokeStyle = shipTrimColor(time);
     ctx.globalAlpha = flicker ? 0.34 : 0.58;
     ctx.stroke();
     ctx.globalAlpha = flicker ? 0.52 : 1;
   }
 
-  function drawShipCockpit(x, y, radiusX, radiusY) {
-    ctx.fillStyle = state.loadout.cockpit;
+  function drawShipCockpit(x, y, radiusX, radiusY, time = performance.now()) {
+    ctx.fillStyle = shipCockpitColor(time);
     ctx.beginPath();
     ctx.ellipse(x, y, radiusX, radiusY, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -4587,7 +4845,7 @@
 
   function drawShipWingGlow(time, x, y) {
     ctx.save();
-    ctx.fillStyle = state.loadout.cockpit;
+    ctx.fillStyle = shipCockpitColor(time);
     ctx.globalAlpha = 0.42 + Math.sin(time * 0.018 + y) * 0.12;
     ctx.beginPath();
     ctx.ellipse(x, y, 5, 2, 0, 0, Math.PI * 2);
@@ -4920,11 +5178,27 @@
   }
 
   function trailColor(time = performance.now()) {
-    if (!state.loadout.rainbowTrail) {
+    if (!state.loadout.rainbowTrail && !isOverdriveActive()) {
       return state.loadout.trail;
     }
-    const hue = Math.floor((time * 0.12) % 360);
-    return `hsl(${hue}, 94%, 64%)`;
+    return overdriveColor(time);
+  }
+
+  function overdriveColor(time = performance.now(), offset = 0) {
+    const hue = Math.floor((time * 0.22 + offset) % 360);
+    return `hsl(${hue}, 96%, 62%)`;
+  }
+
+  function shipPaintColor(time = performance.now()) {
+    return isOverdriveActive() ? overdriveColor(time, 0) : state.loadout.paint;
+  }
+
+  function shipTrimColor(time = performance.now()) {
+    return isOverdriveActive() ? overdriveColor(time, 96) : state.loadout.trim;
+  }
+
+  function shipCockpitColor(time = performance.now()) {
+    return isOverdriveActive() ? overdriveColor(time, 188) : state.loadout.cockpit;
   }
 
   function drawEnergy() {
@@ -4946,6 +5220,45 @@
     ctx.fillStyle = "rgba(244,247,251,0.7)";
     ctx.font = "700 12px system-ui, sans-serif";
     ctx.fillText(`SHIFT OR HOLD MOVE BOOST   SPACE BLASTER ${player.reload <= 0 ? "READY" : "CHARGING"}`, x, y - 8);
+    ctx.restore();
+
+    drawOverdriveTimer();
+  }
+
+  function drawOverdriveTimer() {
+    if (!isOverdriveActive()) {
+      return;
+    }
+
+    const remaining = Math.max(0, player.overdriveTimer);
+    const ratio = overdriveRatio();
+    const width = 282;
+    const height = 24;
+    const x = WIDTH / 2 - width / 2;
+    const y = ORIGIN_Y - 36;
+    ctx.save();
+    ctx.fillStyle = "rgba(3, 5, 8, 0.72)";
+    roundRect(x, y, width, height, 8);
+    ctx.fill();
+    ctx.strokeStyle = overdriveColor(performance.now(), 70);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const fillWidth = Math.max(0, (width - 8) * ratio);
+    const gradient = ctx.createLinearGradient(x + 4, y, x + width - 4, y);
+    gradient.addColorStop(0, overdriveColor(performance.now(), 0));
+    gradient.addColorStop(0.5, overdriveColor(performance.now(), 130));
+    gradient.addColorStop(1, overdriveColor(performance.now(), 260));
+    if (fillWidth > 1) {
+      ctx.fillStyle = gradient;
+      roundRect(x + 4, y + 4, fillWidth, height - 8, 6);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = "#f4f7fb";
+    ctx.font = "900 12px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`CRYSTAL OVERDRIVE ${remaining.toFixed(1)}s`, WIDTH / 2, y + 16);
     ctx.restore();
   }
 
@@ -6694,6 +7007,13 @@
     } else if (kind === "shoot") {
       playTone(980, 0.035, "square", 0.052);
       playTone(520, 0.055, "triangle", 0.03, 0.026);
+    } else if (kind === "overdriveShot") {
+      playTone(1380, 0.026, "square", 0.035);
+      playTone(740, 0.045, "sawtooth", 0.022, 0.014);
+    } else if (kind === "overdrive") {
+      playSequence([392, 587, 784, 1175, 1568], 0.07, "triangle", 0.085, 0.055);
+      playTone(196, 0.42, "sawtooth", 0.06);
+      playNoise(0.34, 0.08, 3200, 0.04);
     } else if (kind === "rocket") {
       playTone(185, 0.16, "sawtooth", 0.045);
       playTone(92, 0.2, "triangle", 0.028, 0.03);
@@ -6814,12 +7134,19 @@
 
   function startMusic() {
     unlockAudio();
-    if (!audioContext || musicTimer) {
+    if (!audioContext) {
+      return;
+    }
+    applyAudioMix();
+    const interval = desiredMusicInterval();
+    if (musicTimer) {
+      refreshMusicTempo();
       return;
     }
     musicStep = 0;
     playMusicStep();
-    musicTimer = window.setInterval(playMusicStep, 190);
+    musicIntervalMs = interval;
+    musicTimer = window.setInterval(playMusicStep, musicIntervalMs);
   }
 
   function stopMusic() {
@@ -6828,6 +7155,25 @@
     }
     window.clearInterval(musicTimer);
     musicTimer = null;
+    musicIntervalMs = 0;
+  }
+
+  function desiredMusicInterval() {
+    return musicOverdriveActive() ? 112 : 190;
+  }
+
+  function refreshMusicTempo() {
+    if (!musicTimer) {
+      return;
+    }
+
+    const interval = desiredMusicInterval();
+    if (interval === musicIntervalMs) {
+      return;
+    }
+    window.clearInterval(musicTimer);
+    musicIntervalMs = interval;
+    musicTimer = window.setInterval(playMusicStep, musicIntervalMs);
   }
 
   function playMusicStep() {
@@ -6835,6 +7181,8 @@
       return;
     }
 
+    refreshMusicTempo();
+    const overdriving = musicOverdriveActive();
     const step = musicStep % 32;
     const bassRoots = [73, 73, 98, 98, 110, 110, 82, 123];
     const root = bassRoots[Math.floor(step / 4) % bassRoots.length];
@@ -6844,25 +7192,32 @@
     const leadNote = lead[step];
 
     if (step % 4 === 0) {
-      playTone(root, 0.34, "sawtooth", 0.17, 0, musicGain);
-      playTone(root / 2, 0.18, "triangle", 0.16, 0.01, musicGain);
-      playNoise(0.055, 0.035, 240, 0, musicGain);
+      playTone(root, overdriving ? 0.26 : 0.34, "sawtooth", overdriving ? 0.2 : 0.17, 0, musicGain);
+      playTone(root / 2, 0.18, "triangle", overdriving ? 0.18 : 0.16, 0.01, musicGain);
+      playNoise(0.055, overdriving ? 0.045 : 0.035, 240, 0, musicGain);
     }
     if (step % 16 === 0) {
       playTone(root * 2, 0.92, "sine", 0.032, 0, musicGain);
       playTone(root * 2.5, 0.92, "triangle", 0.022, 0.01, musicGain);
       playTone(root * 3, 0.92, "sine", 0.024, 0.02, musicGain);
     }
-    playTone(arpNote, 0.115, step % 2 ? "triangle" : "sine", 0.062, 0.012, musicGain);
+    playTone(arpNote, overdriving ? 0.09 : 0.115, step % 2 ? "triangle" : "sine", overdriving ? 0.078 : 0.062, 0.012, musicGain);
     if (leadNote) {
       playTone(leadNote, 0.18, "triangle", 0.08, 0.026, musicGain);
       playTone(leadNote * 1.005, 0.14, "sine", 0.025, 0.03, musicGain);
     }
     if (step % 2 === 0) {
-      playNoise(0.038, 0.026, 5200, 0.01, musicGain);
+      playNoise(0.038, overdriving ? 0.036 : 0.026, 5200, 0.01, musicGain);
     }
     if (step % 8 === 6) {
       playNoise(0.09, 0.032, 1200, 0, musicGain);
+    }
+    if (overdriving) {
+      const sparks = [1175, 1568, 1760, 2093];
+      playTone(sparks[step % sparks.length], 0.06, step % 2 ? "square" : "triangle", 0.042, 0.004, musicGain);
+      if (step % 2 === 1) {
+        playNoise(0.032, 0.022, 7400, 0, musicGain);
+      }
     }
 
     musicStep += 1;
