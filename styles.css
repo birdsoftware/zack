@@ -1972,6 +1972,7 @@ canvas {
 }
 
 @media (max-width: 720px) {
+  html,
   body {
     overflow-x: hidden;
   }
@@ -2094,6 +2095,8 @@ canvas {
   canvas {
     width: 126.984vw;
     max-width: none;
+    justify-self: start;
+    transform: translateX(-13.492vw);
     border-radius: 6px;
     height: min(58vh, 520px);
     height: min(58dvh, 520px);
