@@ -1119,6 +1119,14 @@
     return (text || fallback).slice(0, maxLength);
   }
 
+  function optionalClientCount(value, max = 999) {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(0, Math.min(max, Math.floor(number))) : null;
+  }
+
   function readDailyAlias() {
     try {
       const stored = localStorage.getItem(DAILY_ALIAS_KEY);
@@ -1177,9 +1185,9 @@
           world: typeof entry.world === "string" ? entry.world.slice(0, 32) : "Planet",
           pilot: typeof entry.pilot === "string" ? entry.pilot.slice(0, 32) : "Pilot",
           result: cleanClientText(entry.result, "Completed", 32),
-          coresCollected: Math.max(0, Math.floor(Number(entry.coresCollected) || 0)),
-          coresTotal: Math.max(0, Math.floor(Number(entry.coresTotal) || 0)),
-          livesLeft: Math.max(0, Math.floor(Number(entry.livesLeft) || 0)),
+          coresCollected: optionalClientCount(entry.coresCollected, 99),
+          coresTotal: optionalClientCount(entry.coresTotal, 99),
+          livesLeft: optionalClientCount(entry.livesLeft, 99),
           ship: cleanClientText(entry.ship, "Not recorded yet", 32),
           powerMoment: cleanClientText(entry.powerMoment, "Clean core run", 48),
           funTitle: cleanClientText(entry.funTitle, "Smooth Navigator", 32),
@@ -2190,8 +2198,8 @@
       ["Mission date", missionDateLabel(entry.dateKey)],
       ["Run result", entry.result],
       ["Time", formatRunTime(entry.seconds)],
-      ["Cores collected", `${entry.coresCollected}/${entry.coresTotal || "?"}`],
-      ["Lives left", String(entry.livesLeft)],
+      ["Cores collected", entry.coresTotal === null ? "Not recorded yet" : `${entry.coresCollected ?? 0}/${entry.coresTotal}`],
+      ["Lives left", entry.livesLeft === null ? "Not recorded yet" : String(entry.livesLeft)],
       ["Pilot used", entry.pilot],
       ["Ship used", entry.ship],
       ["Power-up moment", entry.powerMoment],

@@ -59,10 +59,20 @@ function cleanAlias(value, dateKey) {
   return ALIAS_FALLBACKS[index];
 }
 
+function optionalCount(value, max = 99) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(max, Math.floor(number))) : null;
+}
+
 function normalizeEntry(entry = {}) {
   const dateKey = dateKeyFrom(entry.dateKey);
-  const coresTotal = Math.max(0, Math.min(99, Math.floor(Number(entry.coresTotal) || 0)));
-  const coresCollected = Math.max(0, Math.min(coresTotal || 99, Math.floor(Number(entry.coresCollected) || 0)));
+  const coresTotal = optionalCount(entry.coresTotal);
+  const coresCollected = coresTotal === null
+    ? null
+    : Math.max(0, Math.min(coresTotal, Math.floor(Number(entry.coresCollected) || 0)));
   return {
     alias: cleanAlias(entry.alias, dateKey),
     score: Math.max(0, Math.min(9999999, Math.floor(Number(entry.score) || 0))),
@@ -74,7 +84,7 @@ function normalizeEntry(entry = {}) {
     result: cleanText(entry.result, "Completed", 32),
     coresCollected,
     coresTotal,
-    livesLeft: Math.max(0, Math.min(99, Math.floor(Number(entry.livesLeft) || 0))),
+    livesLeft: optionalCount(entry.livesLeft),
     ship: cleanText(entry.ship, "Not recorded yet", 32),
     powerMoment: cleanText(entry.powerMoment, "Clean core run", 48),
     funTitle: cleanText(entry.funTitle, "Smooth Navigator", 32),
