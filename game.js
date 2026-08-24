@@ -10,6 +10,7 @@
     lives: document.getElementById("lifeValue"),
     score: document.getElementById("scoreValue"),
     best: document.getElementById("bestValue"),
+    journeyProgress: document.getElementById("journeyProgress"),
     aboutAuthor: document.getElementById("aboutAuthorBtn"),
     start: document.getElementById("startBtn"),
     pause: document.getElementById("pauseBtn"),
@@ -995,6 +996,17 @@
     return rescuedMissions + activePieces;
   }
 
+  function currentRaceMissions() {
+    if (!state.pilot) {
+      return 0;
+    }
+
+    const savedRescues = state.campaign?.[state.pilot.id]?.rescued || 0;
+    const rescued = Math.max(savedRescues, state.raceProgress);
+    const activePieces = rescued >= FRIENDS_PER_RACE ? 0 : Math.min(MAX_LEVELS, Math.max(0, state.puzzlePieces));
+    return Math.min(MAX_LEVELS * FRIENDS_PER_RACE, rescued * MAX_LEVELS + activePieces);
+  }
+
   function currentFriendIndex() {
     return Math.min(FRIENDS_PER_RACE - 1, state.raceProgress);
   }
@@ -1863,6 +1875,7 @@
     ui.start.disabled = state.mode === "playing" || state.mode === "paused";
     ui.pause.setAttribute("aria-pressed", String(state.mode === "paused"));
     ui.pause.textContent = state.mode === "paused" ? "Resume" : "Pause";
+    renderJourneyProgress();
   }
 
   function syncLayoutMetrics() {
@@ -6022,6 +6035,58 @@
     ui.pilotRank.textContent = `Pilot Lv ${state.pilotLevel} • ${state.raceProgress}/${FRIENDS_PER_RACE} friends`;
     ui.rescuedFriendStrip.innerHTML = friendStripHtml();
     ui.pilotHud.setAttribute("aria-label", `Open rescue map for ${state.pilot.name}`);
+  }
+
+  function renderJourneyProgress() {
+    if (!ui.journeyProgress) {
+      return;
+    }
+
+    const raceTotal = MAX_LEVELS * FRIENDS_PER_RACE;
+    const raceMissions = currentRaceMissions();
+    const totalMissions = totalCampaignMissions();
+    const activeWorld = state.pilot && state.raceProgress < FRIENDS_PER_RACE ? currentFriendIndex() : -1;
+    const worlds = RESCUE_WORLDS.slice(0, FRIENDS_PER_RACE);
+    const pilotLabel = state.pilot ? state.pilot.name : "Choose pilot";
+    ui.journeyProgress.setAttribute(
+      "aria-label",
+      `${pilotLabel} route progress: ${raceMissions} of ${raceTotal} missions. Full game ${totalMissions} of ${TOTAL_MISSIONS} missions.`
+    );
+
+    ui.journeyProgress.innerHTML = `
+      <div class="journey-summary">
+        <span>Race route</span>
+        <strong>${raceMissions}/${raceTotal}</strong>
+      </div>
+      <div class="journey-track">
+        ${worlds.map((world, worldIndex) => {
+          const worldStart = worldIndex * MAX_LEVELS;
+          const planetComplete = raceMissions >= worldStart + MAX_LEVELS;
+          const planetActive = worldIndex === activeWorld;
+          const planetLocked = !state.pilot || raceMissions < worldStart;
+          const dots = Array.from({ length: MAX_LEVELS }, (_, dotIndex) => {
+            const missionIndex = worldStart + dotIndex;
+            const done = raceMissions > missionIndex;
+            const current = state.pilot && raceMissions === missionIndex && !planetComplete;
+            return `<span class="journey-dot ${done ? "done" : ""} ${current ? "current" : ""}" aria-hidden="true"></span>`;
+          }).join("");
+
+          return `
+            <div class="journey-segment">
+              <span class="journey-world ${planetComplete ? "complete" : ""} ${planetActive ? "active" : ""} ${planetLocked ? "locked" : ""}" title="${world.name}" style="--world-accent: ${world.accent}; --world-glow: ${world.glow}">
+                <span class="journey-planet planet-${world.id}" aria-hidden="true"></span>
+                <span class="journey-world-label">${world.name.split(" ")[0]}</span>
+              </span>
+              <span class="journey-dots" aria-hidden="true">${dots}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <div class="journey-summary total">
+        <span>Total</span>
+        <strong>${totalMissions}/${TOTAL_MISSIONS}</strong>
+      </div>
+    `;
   }
 
   function friendStripHtml() {

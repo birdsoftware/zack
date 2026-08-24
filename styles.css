@@ -91,7 +91,8 @@ button:disabled:hover {
   display: grid;
   grid-template-areas:
     "brand pilot actions"
-    "stats stats stats";
+    "stats stats stats"
+    "journey journey journey";
   grid-template-columns: minmax(180px, 1fr) minmax(0, 300px) auto;
   align-items: center;
   gap: 14px;
@@ -234,6 +235,230 @@ button:disabled:hover {
   font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.journey-progress {
+  grid-area: journey;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(73, 224, 255, 0.08), rgba(121, 242, 142, 0.06), rgba(255, 202, 79, 0.07)),
+    rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 0 28px rgba(73, 224, 255, 0.06);
+}
+
+.journey-summary {
+  flex: 0 0 auto;
+  min-width: 64px;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.journey-summary strong,
+.journey-summary span {
+  display: block;
+  line-height: 1.05;
+}
+
+.journey-summary strong {
+  margin-top: 3px;
+  color: var(--green);
+  font-size: 0.9rem;
+}
+
+.journey-summary.total {
+  min-width: 70px;
+  text-align: right;
+}
+
+.journey-track {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.journey-segment {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.journey-world {
+  --world-accent: var(--cyan);
+  --world-glow: var(--green);
+  flex: 0 0 auto;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  color: rgba(244, 247, 251, 0.72);
+  opacity: 0.72;
+}
+
+.journey-world.active,
+.journey-world.complete {
+  opacity: 1;
+}
+
+.journey-planet {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(244, 247, 251, 0.22);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.7), transparent 15%),
+    radial-gradient(circle at 64% 68%, rgba(0, 0, 0, 0.28), transparent 28%),
+    var(--world-accent);
+  box-shadow: 0 0 0 rgba(121, 242, 142, 0);
+}
+
+.journey-world.active .journey-planet {
+  border-color: rgba(255, 202, 79, 0.78);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--world-glow) 48%, transparent);
+  animation: journey-planet-pulse 1.8s ease-in-out infinite;
+}
+
+.journey-world.complete .journey-planet {
+  border-color: rgba(121, 242, 142, 0.82);
+  box-shadow: 0 0 16px rgba(121, 242, 142, 0.34);
+}
+
+.journey-world.locked .journey-planet {
+  filter: grayscale(0.65) brightness(0.7);
+}
+
+.planet-moon {
+  background:
+    radial-gradient(circle at 35% 33%, rgba(15, 19, 26, 0.28) 0 3px, transparent 4px),
+    radial-gradient(circle at 68% 62%, rgba(15, 19, 26, 0.2) 0 4px, transparent 5px),
+    linear-gradient(145deg, #f4f7fb, #7d8794);
+}
+
+.planet-mars {
+  background:
+    radial-gradient(ellipse at 38% 40%, rgba(255, 202, 79, 0.45) 0 7px, transparent 8px),
+    linear-gradient(145deg, #ff9a4f, #8c2d22);
+}
+
+.planet-saturn {
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.55), transparent 14%),
+    linear-gradient(145deg, #f3d86a, #8f6b22);
+}
+
+.planet-saturn::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: 8px;
+  width: 38px;
+  height: 9px;
+  border: 2px solid rgba(217, 182, 74, 0.62);
+  border-radius: 50%;
+  rotate: -13deg;
+}
+
+.planet-jupiter {
+  background:
+    linear-gradient(#f5d59e 0 18%, #b76a42 19% 34%, #f0c78a 35% 52%, #7e4b35 53% 70%, #ffdca8 71% 100%);
+}
+
+.planet-jupiter::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  top: 12px;
+  width: 7px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 95, 89, 0.72);
+}
+
+.planet-jungle {
+  background:
+    radial-gradient(circle at 66% 30%, rgba(73, 224, 255, 0.45) 0 5px, transparent 6px),
+    radial-gradient(circle at 32% 68%, rgba(255, 202, 79, 0.34) 0 4px, transparent 5px),
+    linear-gradient(145deg, #79f28e, #126735);
+}
+
+.journey-world-label {
+  max-width: 44px;
+  overflow: hidden;
+  color: currentColor;
+  font-size: 0.54rem;
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.journey-dots {
+  flex: 1 1 auto;
+  min-width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 3px;
+}
+
+.journey-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(244, 247, 251, 0.18);
+  border-radius: 50%;
+  background: rgba(198, 207, 218, 0.34);
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.34);
+}
+
+.journey-dot.done {
+  border-color: rgba(121, 242, 142, 0.78);
+  background: var(--green);
+  box-shadow: 0 0 10px rgba(121, 242, 142, 0.42);
+}
+
+.journey-dot.current {
+  border-color: rgba(255, 202, 79, 0.94);
+  background: rgba(255, 202, 79, 0.7);
+  box-shadow: 0 0 12px rgba(255, 202, 79, 0.42);
+  animation: journey-dot-pulse 1.15s ease-in-out infinite;
+}
+
+@keyframes journey-planet-pulse {
+  0%,
+  100% {
+    scale: 1;
+  }
+
+  50% {
+    scale: 1.08;
+  }
+}
+
+@keyframes journey-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.62;
+    scale: 0.9;
+  }
+
+  50% {
+    opacity: 1;
+    scale: 1.24;
+  }
 }
 
 .actions {
@@ -2551,6 +2776,7 @@ canvas {
     grid-template-areas:
       "brand"
       "pilot"
+      "journey"
       "actions"
       "stats";
     gap: 10px;
@@ -2629,6 +2855,7 @@ canvas {
     grid-template-areas:
       "brand pilot"
       "stats stats"
+      "journey journey"
       "actions actions";
     grid-template-columns: minmax(0, 1fr) minmax(118px, 0.78fr);
     gap: 7px;
@@ -2687,6 +2914,71 @@ canvas {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 4px;
     width: 100%;
+  }
+
+  .journey-progress {
+    gap: 6px;
+    padding: 6px 7px;
+  }
+
+  .journey-summary {
+    min-width: 42px;
+    font-size: 0.48rem;
+  }
+
+  .journey-summary span {
+    display: none;
+  }
+
+  .journey-summary strong {
+    margin-top: 0;
+    font-size: 0.7rem;
+  }
+
+  .journey-summary.total {
+    min-width: 48px;
+  }
+
+  .journey-track {
+    gap: 4px;
+  }
+
+  .journey-segment {
+    gap: 3px;
+  }
+
+  .journey-planet {
+    width: 18px;
+    height: 18px;
+  }
+
+  .planet-saturn::before {
+    left: -5px;
+    top: 6px;
+    width: 28px;
+    height: 7px;
+    border-width: 1.5px;
+  }
+
+  .planet-jupiter::after {
+    right: 3px;
+    top: 9px;
+    width: 5px;
+    height: 3px;
+  }
+
+  .journey-world-label {
+    display: none;
+  }
+
+  .journey-dots {
+    min-width: 18px;
+    gap: 2px;
+  }
+
+  .journey-dot {
+    width: 5px;
+    height: 5px;
   }
 
   .stat,
@@ -2863,6 +3155,36 @@ canvas {
   .pilot-mini-avatar {
     width: 28px;
     height: 28px;
+  }
+
+  .journey-progress {
+    padding-inline: 5px;
+  }
+
+  .journey-summary {
+    min-width: 36px;
+  }
+
+  .journey-summary.total {
+    min-width: 42px;
+  }
+
+  .journey-track {
+    gap: 3px;
+  }
+
+  .journey-segment {
+    gap: 2px;
+  }
+
+  .journey-planet {
+    width: 16px;
+    height: 16px;
+  }
+
+  .journey-dot {
+    width: 4px;
+    height: 4px;
   }
 
   .pilot-panel {
