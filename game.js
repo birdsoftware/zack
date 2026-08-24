@@ -109,6 +109,7 @@
   const CAMPAIGN_KEY = "star-maze-dodger-campaign";
   const VISIT_KEY = "star-maze-dodger-visits";
   const PLAY_KEY = "star-maze-dodger-plays";
+  const TRAFFIC_ENDPOINT = "/.netlify/functions/traffic";
   const MUTED_KEY = "star-maze-dodger-muted";
   const MUSIC_VOLUME_KEY = "star-maze-dodger-music-volume";
   const SFX_VOLUME_KEY = "star-maze-dodger-sfx-volume";
@@ -171,6 +172,8 @@
   const audience = {
     visits: bumpCounter(VISIT_KEY),
     plays: readCounter(PLAY_KEY),
+    shared: false,
+    loading: true,
   };
 
   const mapCtx = ui.rescueMapCanvas.getContext("2d");
@@ -742,6 +745,52 @@
       localStorage.setItem(key, String(value));
     } catch (error) {
       // Keep the on-screen number for this session even if storage is blocked.
+    }
+  }
+
+  function normalizeTrafficCounter(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : null;
+  }
+
+  function applySharedTrafficTotals(totals) {
+    const visits = normalizeTrafficCounter(totals && totals.visits);
+    const plays = normalizeTrafficCounter(totals && totals.plays);
+
+    if (visits == null || plays == null) {
+      return;
+    }
+
+    audience.visits = visits;
+    audience.plays = plays;
+    audience.shared = true;
+    audience.loading = false;
+    updateAboutCounters();
+  }
+
+  async function trackTraffic(eventName) {
+    if (typeof fetch !== "function") {
+      audience.loading = false;
+      updateAboutCounters();
+      return;
+    }
+
+    try {
+      const response = await fetch(TRAFFIC_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event: eventName }),
+        keepalive: true,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Traffic counter returned ${response.status}`);
+      }
+
+      applySharedTrafficTotals(await response.json());
+    } catch (error) {
+      audience.loading = false;
+      updateAboutCounters();
     }
   }
 
@@ -1429,11 +1478,22 @@
     audience.plays += 1;
     saveCounter(PLAY_KEY, audience.plays);
     updateAboutCounters();
+    trackTraffic("play");
   }
 
   function updateAboutCounters() {
     ui.aboutVisitValue.textContent = formatCounter(audience.visits);
     ui.aboutPlayValue.textContent = formatCounter(audience.plays);
+    if (audience.loading) {
+      ui.aboutCounterNote.textContent = "Counting visits from the whole site...";
+      return;
+    }
+
+    if (!audience.shared) {
+      ui.aboutCounterNote.textContent = "The shared counter is warming up, so this browser is showing its local count for now.";
+      return;
+    }
+
     const remaining = Math.max(0, 3000 - audience.plays);
     ui.aboutCounterNote.textContent = remaining
       ? `Goal: ${formatCounter(remaining)} more launches on the way to 3,000 real players. Thanks guys! This inspires me to make more games.`
@@ -7548,5 +7608,6 @@
 
   updateAudioControls();
   newRun("select");
+  trackTraffic("visit");
   requestAnimationFrame(loop);
 })();
