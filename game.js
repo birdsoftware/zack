@@ -654,6 +654,32 @@
       tentacleRange: WORM_ARM_REACH_BLOCKS,
       tentacleWidth: WORM_ARM_WIDTH,
     },
+    {
+      id: "hydra",
+      name: "Venom Hydra",
+      shape: "hybrid",
+      behavior: "lurker",
+      weapon: "hybrid",
+      color: "#7b4dff",
+      accent: "#79f28e",
+      eye: "#ffca4f",
+      radius: 23,
+      collisionR: 12,
+      hpBonus: 7,
+      speedMultiplier: 0.94,
+      rocketDelayMultiplier: 0.78,
+      rocketSpeedMultiplier: 1.12,
+      rocketTurnMultiplier: 1.2,
+      minRocketRange: 64,
+      rocketBurst: 2,
+      rocketSpread: 0.2,
+      pulseSpeed: 6.1,
+      preferredDistance: 128,
+      tentacleCount: 5,
+      tentacleCooldown: 1.05,
+      tentacleRange: WORM_ARM_REACH_BLOCKS,
+      tentacleWidth: WORM_ARM_WIDTH + 2,
+    },
   ];
 
   function makeStars(count) {
@@ -994,7 +1020,8 @@
       }));
 
     const wallStats = strengthenWalls(grid, wallHits, rng);
-    const boss = state.raceProgress > 0 ? makeBoss(openCells, rng, challenge, stage) : null;
+    const bosses = makeBosses(openCells, rng, challenge, stage);
+    const boss = bosses[0] || null;
 
     return {
       grid,
@@ -1005,6 +1032,7 @@
       boosts,
       sentries,
       boss,
+      bosses,
       wallHits,
       wallStats,
       bullets: [],
@@ -1059,16 +1087,47 @@
     };
   }
 
-  function makeBoss(openCells, rng, challenge, stage) {
-    const candidates = openCells.filter((cell) => cell.distance > 12);
-    const cell = candidates[rng.int(0, Math.max(0, candidates.length - 1))] || openCells[openCells.length - 1];
+  function makeBosses(openCells, rng, challenge, stage) {
+    const count = bossCountForRaceProgress();
+    const bosses = [];
+    const usedCells = [];
+    for (let slot = 0; slot < count; slot += 1) {
+      bosses.push(makeBoss(openCells, rng, challenge, stage, slot, usedCells));
+    }
+    return bosses;
+  }
+
+  function bossCountForRaceProgress() {
+    if (state.raceProgress >= 4) {
+      return 3;
+    }
+    if (state.raceProgress >= 2) {
+      return 2;
+    }
+    return state.raceProgress > 0 ? 1 : 0;
+  }
+
+  function makeBoss(openCells, rng, challenge, stage, slot = 0, usedCells = []) {
+    const candidates = openCells.filter((cell) => {
+      if (cell.distance <= 12) {
+        return false;
+      }
+      return !usedCells.some((used) => manhattan(cell, used) < 8);
+    });
+    const fallbackCells = openCells.filter((cell) => cell.distance > 12);
+    const pool = candidates.length ? candidates : fallbackCells;
+    const cell = pool[rng.int(0, Math.max(0, pool.length - 1))] || openCells[openCells.length - 1];
+    usedCells.push(cell);
     const position = cellCenter(cell.c, cell.r);
     const bossTier = Math.max(0, state.raceProgress - 1);
-    const archetype = bossArchetypeFor(stage);
+    const archetype = bossArchetypeFor(stage, slot, rng);
     const maxHp = Math.max(8, 10 + bossTier * 3 + Math.floor(stage / 2) + archetype.hpBonus);
     return {
       x: position.x,
       y: position.y,
+      uid: `boss-${state.raceProgress}-${stage}-${slot}-${cell.c}-${cell.r}`,
+      c: cell.c,
+      rCell: cell.r,
       id: archetype.id,
       name: archetype.name,
       shape: archetype.shape,
@@ -1102,7 +1161,7 @@
   }
 
   function makeBossTentacles(archetype, rng) {
-    const count = archetype.weapon === "tentacles" ? archetype.tentacleCount || 4 : 0;
+    const count = archetype.tentacleCount || 0;
     return Array.from({ length: count }, (_, index) => ({
       index,
       state: "idle",
@@ -1115,10 +1174,19 @@
     }));
   }
 
-  function bossArchetypeFor(stage) {
+  function bossArchetypeFor(stage, slot = 0, rng = null) {
     const pilotOffset = Math.max(0, PILOTS.findIndex((pilot) => pilot.id === state.pilot?.id));
-    const index = (Math.max(0, state.raceProgress - 1) + stage + pilotOffset * 2) % BOSS_ARCHETYPES.length;
-    return BOSS_ARCHETYPES[index];
+    const regularBosses = BOSS_ARCHETYPES.filter((boss) => boss.id !== "hydra");
+    const hydra = BOSS_ARCHETYPES.find((boss) => boss.id === "hydra");
+    if (hydra && state.raceProgress >= 1 && rng) {
+      const chance = state.raceProgress >= 2 ? 0.5 : 0.32;
+      const slotBoost = slot > 0 ? 0.22 : 0;
+      if (rng.next() < Math.min(0.76, chance + slotBoost)) {
+        return hydra;
+      }
+    }
+    const index = (Math.max(0, state.raceProgress - 1) + stage + pilotOffset * 2 + slot * 2) % regularBosses.length;
+    return regularBosses[index];
   }
 
   function carveMaze(grid, rng, start) {
@@ -1621,12 +1689,36 @@
     }
   }
 
+  function bossList() {
+    if (!level) {
+      return [];
+    }
+    if (Array.isArray(level.bosses)) {
+      return level.bosses;
+    }
+    return level.boss ? [level.boss] : [];
+  }
+
+  function activeBosses() {
+    return bossList().filter((boss) => boss && boss.hp > 0);
+  }
+
+  function bossHasTentacles(boss) {
+    return boss.tentacles?.length > 0;
+  }
+
+  function bossCanFireRockets(boss) {
+    return (boss.rocketBurst || 0) > 0;
+  }
+
   function updateBoss(dt) {
-    const boss = level.boss;
-    if (!boss || boss.hp <= 0 || state.mode !== "playing") {
+    if (state.mode !== "playing") {
       return;
     }
+    activeBosses().forEach((boss) => updateSingleBoss(boss, dt));
+  }
 
+  function updateSingleBoss(boss, dt) {
     const dx = player.x - boss.x;
     const dy = player.y - boss.y;
     const length = Math.hypot(dx, dy) || 1;
@@ -1646,11 +1738,13 @@
     if (!circleHitsWall(boss.x, boss.y + vy, moveRadius)) {
       boss.y += vy;
     }
-    if (boss.weapon === "tentacles") {
+    if (bossHasTentacles(boss)) {
       updateBossTentacles(boss, dt);
-      return;
     }
 
+    if (!bossCanFireRockets(boss)) {
+      return;
+    }
     boss.rocketCooldown -= dt;
     if (boss.rocketCooldown <= 0 && length > boss.minRocketRange) {
       fireBossVolley(boss, dirX, dirY);
@@ -2012,6 +2106,7 @@
       life: 3.4,
       trail: [],
       color: boss.color,
+      ownerId: boss.uid,
     });
   }
 
@@ -2260,16 +2355,19 @@
       return true;
     }
 
-    if (!level.boss || level.boss.hp <= 0) {
+    const bosses = activeBosses();
+    if (!bosses.length) {
       return false;
     }
 
-    if (distance(player, level.boss) < 160) {
+    if (bosses.some((boss) => distance(player, boss) < 160)) {
       return true;
     }
 
-    const bossTentacles = level.boss.tentacles || [];
-    return bossTentacles.some((tentacle) => tentacle.state !== "idle" && bossTentacleHitsPlayer(level.boss, tentacle));
+    return bosses.some((boss) => {
+      const bossTentacles = boss.tentacles || [];
+      return bossTentacles.some((tentacle) => tentacle.state !== "idle" && bossTentacleHitsPlayer(boss, tentacle));
+    });
   }
 
   function resetShipMaintenance() {
@@ -2602,8 +2700,9 @@
       bullet.y += bullet.vy * dt;
       bullet.life -= dt;
 
-      if (level.boss && level.boss.hp > 0 && distance(bullet, level.boss) < bullet.r + level.boss.r + 4) {
-        damageBoss(bullet);
+      const hitBoss = activeBosses().find((boss) => distance(bullet, boss) < bullet.r + boss.r + 4);
+      if (hitBoss) {
+        damageBoss(hitBoss, bullet);
         if (bullet.pierce > 0) {
           bullet.pierce -= 1;
           continue;
@@ -2899,7 +2998,7 @@
     if (player && distance(player, center) < CELL * 1.35) {
       return false;
     }
-    if (level.boss && level.boss.hp > 0 && distance(level.boss, center) < CELL * 1.55) {
+    if (activeBosses().some((boss) => distance(boss, center) < CELL * 1.55)) {
       return false;
     }
     return true;
@@ -3111,8 +3210,7 @@
     level.bursts = level.bursts.filter((spark) => spark.life > 0);
   }
 
-  function damageBoss(bullet) {
-    const boss = level.boss;
+  function damageBoss(boss, bullet) {
     if (!boss || boss.hp <= 0) {
       return;
     }
@@ -3121,7 +3219,7 @@
     state.cameraShake = Math.max(state.cameraShake, 0.25);
     if (boss.hp <= 0) {
       boss.hp = 0;
-      level.bossRockets = [];
+      level.bossRockets = level.bossRockets.filter((rocket) => rocket.ownerId !== boss.uid);
       state.score += 450 + state.raceProgress * 60;
       state.messageTimer = 1.35;
       state.toast = `${boss.name} defeated`;
@@ -3181,7 +3279,7 @@
       return;
     }
 
-    const bossHit = level.boss && level.boss.hp > 0 && distance(player, level.boss) < player.r + level.boss.r + 2;
+    const bossHit = activeBosses().some((boss) => distance(player, boss) < player.r + boss.r + 2);
     const hit = bossHit || level.sentries.some((sentry) => distance(player, sentry) < player.r + sentry.r + 2);
     if (!hit) {
       return;
@@ -3841,13 +3939,12 @@
   }
 
   function drawBoss(time) {
-    const boss = level.boss;
-    if (!boss || boss.hp <= 0) {
-      return;
-    }
+    activeBosses().forEach((boss) => drawSingleBoss(boss, time));
+  }
 
+  function drawSingleBoss(boss, time) {
     const pulse = 0.5 + Math.sin(time * 0.008 + boss.pulse) * 0.5;
-    if (boss.weapon === "tentacles") {
+    if (bossHasTentacles(boss)) {
       drawBossTentacles(boss, time, pulse);
     }
 
@@ -3865,6 +3962,8 @@
       drawCasterBoss(boss, pulse);
     } else if (boss.shape === "worm") {
       drawWormBoss(boss, pulse);
+    } else if (boss.shape === "hybrid") {
+      drawHybridBoss(boss, pulse);
     }
     ctx.restore();
 
@@ -4186,6 +4285,46 @@
     ctx.quadraticCurveTo(-14, -25 - pulse * 4, -4, -27);
     ctx.moveTo(8, -18);
     ctx.quadraticCurveTo(14, -25 - pulse * 4, 4, -27);
+    ctx.stroke();
+  }
+
+  function drawHybridBoss(boss, pulse) {
+    drawWormBoss(boss, pulse);
+
+    ctx.strokeStyle = boss.accent;
+    ctx.lineWidth = 3;
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.translate(side * 18, -3);
+      ctx.rotate(side * 0.24);
+      ctx.fillStyle = "rgba(7, 19, 41, 0.95)";
+      roundRect(-5, -13, 10, 26, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = boss.eye;
+      ctx.shadowColor = boss.eye;
+      ctx.shadowBlur = 9;
+      ctx.beginPath();
+      ctx.arc(0, -15, 4 + pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.fillStyle = boss.color;
+    ctx.globalAlpha = 0.86;
+    ctx.beginPath();
+    ctx.moveTo(0, -30 - pulse * 3);
+    ctx.lineTo(8, -15);
+    ctx.lineTo(0, -18);
+    ctx.lineTo(-8, -15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = "rgba(255, 202, 79, 0.78)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 1, 15 + pulse * 3, Math.PI * 0.12, Math.PI * 1.88);
     ctx.stroke();
   }
 
