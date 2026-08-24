@@ -2115,6 +2115,16 @@ canvas {
     box-shadow: 0 0 26px rgba(73, 224, 255, 0.36), 0 16px 36px rgba(0, 0, 0, 0.42);
     pointer-events: auto;
   }
+
+  .game-shell[data-mode="select"] .pilot-panel {
+    align-items: start;
+    overflow: hidden;
+  }
+
+  .game-shell[data-mode="select"] .pilot-card {
+    max-height: 100%;
+    overflow: auto;
+  }
 }
 
 @media (pointer: coarse), (max-width: 720px) {
