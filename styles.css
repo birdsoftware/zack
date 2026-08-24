@@ -1276,14 +1276,33 @@ canvas {
 }
 
 .leaderboard-list li {
+  border: 1px solid rgba(244, 247, 251, 0.09);
+  border-radius: 7px;
+  background: rgba(244, 247, 251, 0.055);
+  overflow: hidden;
+}
+
+.leaderboard-entry-button {
+  width: 100%;
+  min-height: 0;
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) minmax(86px, auto) auto;
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  border: 1px solid rgba(244, 247, 251, 0.09);
-  border-radius: 7px;
-  background: rgba(244, 247, 251, 0.055);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.leaderboard-entry-button:hover {
+  background: rgba(73, 224, 255, 0.09);
+}
+
+.leaderboard-entry-button:focus-visible {
+  outline: 2px solid rgba(121, 242, 142, 0.72);
+  outline-offset: -2px;
 }
 
 .leaderboard-rank {
@@ -1322,10 +1341,80 @@ canvas {
 }
 
 .leaderboard-empty {
+  padding: 8px 10px;
   grid-template-columns: 1fr !important;
   color: var(--muted);
   font-weight: 800;
   text-align: center;
+}
+
+.leaderboard-detail[hidden] {
+  display: none;
+}
+
+.leaderboard-detail {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(121, 242, 142, 0.28);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(121, 242, 142, 0.12), transparent 32%),
+    rgba(5, 7, 11, 0.48);
+}
+
+.leaderboard-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(244, 247, 251, 0.66);
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.leaderboard-detail-head button {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.72rem;
+}
+
+#leaderboardDetailTitle {
+  display: block;
+  margin-top: 8px;
+  color: var(--ink);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.leaderboard-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.leaderboard-detail-stats div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(244, 247, 251, 0.09);
+  border-radius: 7px;
+  background: rgba(244, 247, 251, 0.055);
+}
+
+.leaderboard-detail-stats dt {
+  color: rgba(244, 247, 251, 0.56);
+  font-size: 0.64rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.leaderboard-detail-stats dd {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 850;
+  overflow-wrap: anywhere;
 }
 
 .daily-panel-status,
@@ -3839,13 +3928,23 @@ canvas {
     overscroll-behavior: contain;
   }
 
-  .leaderboard-list li {
+  .leaderboard-entry-button {
     grid-template-columns: 30px minmax(0, 1fr) auto;
     padding: 7px;
   }
 
   .leaderboard-world {
     display: none;
+  }
+
+  .leaderboard-detail {
+    flex: 0 0 auto;
+    max-height: 34vh;
+    overflow: auto;
+  }
+
+  .leaderboard-detail-stats {
+    grid-template-columns: 1fr;
   }
 
   #victoryCardCanvas {

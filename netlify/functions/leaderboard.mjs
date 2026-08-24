@@ -61,6 +61,8 @@ function cleanAlias(value, dateKey) {
 
 function normalizeEntry(entry = {}) {
   const dateKey = dateKeyFrom(entry.dateKey);
+  const coresTotal = Math.max(0, Math.min(99, Math.floor(Number(entry.coresTotal) || 0)));
+  const coresCollected = Math.max(0, Math.min(coresTotal || 99, Math.floor(Number(entry.coresCollected) || 0)));
   return {
     alias: cleanAlias(entry.alias, dateKey),
     score: Math.max(0, Math.min(9999999, Math.floor(Number(entry.score) || 0))),
@@ -69,6 +71,13 @@ function normalizeEntry(entry = {}) {
     monthKey: monthKeyFrom(dateKey.slice(0, 7), new Date(`${dateKey}T00:00:00Z`)),
     world: cleanText(entry.world, "Planet", 32),
     pilot: cleanText(entry.pilot, "Pilot", 32),
+    result: cleanText(entry.result, "Completed", 32),
+    coresCollected,
+    coresTotal,
+    livesLeft: Math.max(0, Math.min(99, Math.floor(Number(entry.livesLeft) || 0))),
+    ship: cleanText(entry.ship, "Not recorded yet", 32),
+    powerMoment: cleanText(entry.powerMoment, "Clean core run", 48),
+    funTitle: cleanText(entry.funTitle, "Smooth Navigator", 32),
     createdAt: typeof entry.createdAt === "string" ? entry.createdAt : new Date().toISOString(),
   };
 }

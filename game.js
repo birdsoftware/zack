@@ -72,6 +72,10 @@
     dailyMissionMeta: document.getElementById("dailyMissionMeta"),
     dailyLeaderboardDate: document.getElementById("dailyLeaderboardDate"),
     dailyLeaderboardList: document.getElementById("dailyLeaderboardList"),
+    leaderboardDetail: document.getElementById("leaderboardDetail"),
+    leaderboardDetailTitle: document.getElementById("leaderboardDetailTitle"),
+    leaderboardDetailStats: document.getElementById("leaderboardDetailStats"),
+    closeLeaderboardDetail: document.getElementById("closeLeaderboardDetailBtn"),
     dailyPanelStatus: document.getElementById("dailyPanelStatus"),
     victoryCardPanel: document.getElementById("victoryCardPanel"),
     victoryCardCanvas: document.getElementById("victoryCardCanvas"),
@@ -359,6 +363,7 @@
       alias: "",
       entries: [],
       loading: false,
+      runStats: null,
     },
     victoryCardData: null,
     installReady: false,
@@ -1081,6 +1086,39 @@
     });
   }
 
+  function monthBoardLabel(monthKey = dailyMonthKey()) {
+    return monthLabel(monthKey).replace(/\s+\d{4}$/, "");
+  }
+
+  function missionDateLabel(dateKey = dailyDateKey()) {
+    return dateKey === dailyDateKey() ? "Today's Daily Mission" : `${dayLabel(dateKey)} Daily Mission`;
+  }
+
+  function formatRunTime(seconds = 0) {
+    const total = Math.max(0, Math.round(Number(seconds) || 0));
+    const minutes = Math.floor(total / 60);
+    const remaining = total % 60;
+    return minutes ? `${minutes}m ${String(remaining).padStart(2, "0")}s` : `${remaining}s`;
+  }
+
+  function shipAvatarName(id = state.shipAvatar) {
+    return SHIP_AVATARS.find((ship) => ship.id === id)?.name || "Selected ship";
+  }
+
+  function makeDailyRunStats() {
+    return {
+      overdriveUsed: false,
+      bossDefeated: false,
+      blackHoles: 0,
+      blackHolesSurvived: false,
+    };
+  }
+
+  function cleanClientText(value, fallback, maxLength = 40) {
+    const text = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+    return (text || fallback).slice(0, maxLength);
+  }
+
   function readDailyAlias() {
     try {
       const stored = localStorage.getItem(DAILY_ALIAS_KEY);
@@ -1135,8 +1173,16 @@
           score: Math.max(0, Math.floor(Number(entry.score) || 0)),
           seconds: Math.max(0, Number(entry.seconds) || 0),
           dateKey: typeof entry.dateKey === "string" ? entry.dateKey : "",
+          monthKey: typeof entry.monthKey === "string" ? entry.monthKey.slice(0, 7) : dailyMonthKey(entry.dateKey || dailyDateKey()),
           world: typeof entry.world === "string" ? entry.world.slice(0, 32) : "Planet",
           pilot: typeof entry.pilot === "string" ? entry.pilot.slice(0, 32) : "Pilot",
+          result: cleanClientText(entry.result, "Completed", 32),
+          coresCollected: Math.max(0, Math.floor(Number(entry.coresCollected) || 0)),
+          coresTotal: Math.max(0, Math.floor(Number(entry.coresTotal) || 0)),
+          livesLeft: Math.max(0, Math.floor(Number(entry.livesLeft) || 0)),
+          ship: cleanClientText(entry.ship, "Not recorded yet", 32),
+          powerMoment: cleanClientText(entry.powerMoment, "Clean core run", 48),
+          funTitle: cleanClientText(entry.funTitle, "Smooth Navigator", 32),
         }))
       : [];
   }
@@ -1177,14 +1223,22 @@
 
     state.daily.submitted = true;
     const meta = state.daily.meta;
+    const runSummary = dailyRunSummary(meta);
     const payload = {
       alias: state.daily.alias || readDailyAlias(),
       score: state.score,
-      seconds: Number(state.levelTime.toFixed(2)),
+      seconds: runSummary.seconds,
       dateKey: meta.dateKey,
       monthKey: meta.monthKey,
       world: meta.world.name,
       pilot: meta.pilot.name,
+      result: runSummary.result,
+      coresCollected: runSummary.coresCollected,
+      coresTotal: runSummary.coresTotal,
+      livesLeft: runSummary.livesLeft,
+      ship: runSummary.ship,
+      powerMoment: runSummary.powerMoment,
+      funTitle: runSummary.funTitle,
     };
 
     try {
@@ -1205,6 +1259,62 @@
       state.daily.submitted = false;
       renderLeaderboardStatus("Could not submit the score yet. The local victory still counts.");
     }
+  }
+
+  function dailyRunSummary(meta = state.daily.meta || todayDailyMission()) {
+    const coresTotal = level?.cores?.length || 0;
+    const coresCollected = level?.cores?.filter((core) => core.collected).length || 0;
+    const stats = state.daily.runStats || makeDailyRunStats();
+    if ((stats.blackHoles || 0) > 0 && state.mode !== "gameover") {
+      stats.blackHolesSurvived = true;
+    }
+    const seconds = Number((state.levelTime || 0).toFixed(2));
+    const livesLeft = Math.max(0, Math.floor(Number(state.lives) || 0));
+    const powerMoment = dailyPowerMoment(stats, coresCollected, coresTotal);
+    return {
+      result: state.mode === "gameover" ? "Mission lost" : "Completed",
+      coresCollected,
+      coresTotal,
+      livesLeft,
+      seconds,
+      ship: shipAvatarName(state.shipAvatar),
+      powerMoment,
+      funTitle: dailyFunTitle(stats, coresCollected, coresTotal, livesLeft, seconds),
+      world: meta.world.name,
+      pilot: meta.pilot.name,
+    };
+  }
+
+  function dailyPowerMoment(stats, coresCollected, coresTotal) {
+    if (stats.overdriveUsed) {
+      return "Crystal Overdrive used";
+    }
+    if (stats.bossDefeated) {
+      return "Boss defeated";
+    }
+    if (stats.blackHolesSurvived) {
+      return "Black holes survived";
+    }
+    if (coresTotal > 0 && coresCollected >= coresTotal) {
+      return "Perfect core sweep";
+    }
+    return "Clean core run";
+  }
+
+  function dailyFunTitle(stats, coresCollected, coresTotal, livesLeft, seconds) {
+    if (stats.bossDefeated) {
+      return "Boss Breaker";
+    }
+    if (stats.blackHolesSurvived) {
+      return "No-Fear Pilot";
+    }
+    if (coresTotal > 0 && coresCollected >= coresTotal && seconds <= 150) {
+      return "Core Hunter";
+    }
+    if (livesLeft >= 5) {
+      return "Smooth Navigator";
+    }
+    return coresTotal > 0 && coresCollected >= coresTotal ? "Core Hunter" : "Smooth Navigator";
   }
 
   function finishDailyMission() {
@@ -1395,6 +1505,7 @@
     state.daily.submitted = false;
     state.daily.meta = null;
     state.daily.alias = readDailyAlias();
+    state.daily.runStats = null;
     state.victoryCardData = null;
     state.shareMapReady = false;
     state.shareMapFriend = "";
@@ -2032,6 +2143,7 @@
     ui.dailyMissionMeta.textContent = `${meta.label} • ${meta.pilot.name} • playing as ${alias}`;
     ui.dailyLeaderboardDate.textContent = monthLabel(meta.monthKey);
     renderLeaderboard(state.daily.entries || []);
+    hideLeaderboardDetail();
     renderLeaderboardStatus("Scores use silly pilot names only. No accounts or real names.");
   }
 
@@ -2043,19 +2155,66 @@
     ui.dailyLeaderboardList.innerHTML = safeEntries.length
       ? safeEntries.map((entry, index) => `
         <li>
-          <span class="leaderboard-rank">${index + 1}</span>
-          <span class="leaderboard-name">${escapeHtml(entry.alias)}</span>
-          <span class="leaderboard-world">${escapeHtml(entry.world)}</span>
-          <strong>${formatCounter(entry.score)}</strong>
+          <button class="leaderboard-entry-button" type="button" data-leaderboard-index="${index}" aria-label="View ${escapeHtml(entry.alias)} pilot summary">
+            <span class="leaderboard-rank">${index + 1}</span>
+            <span class="leaderboard-name">${escapeHtml(entry.alias)}</span>
+            <span class="leaderboard-world">${escapeHtml(entry.world)}</span>
+            <strong>${formatCounter(entry.score)}</strong>
+          </button>
         </li>
       `).join("")
       : `<li class="leaderboard-empty">No monthly scores yet. Be the first silly pilot.</li>`;
+    if (!safeEntries.length) {
+      hideLeaderboardDetail();
+    }
   }
 
   function renderLeaderboardStatus(message) {
     if (ui.dailyPanelStatus) {
       ui.dailyPanelStatus.textContent = message;
     }
+  }
+
+  function showLeaderboardDetail(index) {
+    const entry = normalizeLeaderboardEntries(state.daily.entries || [])[index];
+    if (!entry) {
+      return;
+    }
+
+    const rank = index + 1;
+    const details = [
+      ["Pilot name", entry.alias],
+      ["Monthly rank", `#${rank} on ${monthBoardLabel(entry.monthKey)} board`],
+      ["Score", formatCounter(entry.score)],
+      ["Daily planet", entry.world],
+      ["Mission date", missionDateLabel(entry.dateKey)],
+      ["Run result", entry.result],
+      ["Time", formatRunTime(entry.seconds)],
+      ["Cores collected", `${entry.coresCollected}/${entry.coresTotal || "?"}`],
+      ["Lives left", String(entry.livesLeft)],
+      ["Pilot used", entry.pilot],
+      ["Ship used", entry.ship],
+      ["Power-up moment", entry.powerMoment],
+      ["Fun title", entry.funTitle],
+    ];
+
+    ui.leaderboardDetailTitle.textContent = entry.alias;
+    ui.leaderboardDetailStats.innerHTML = details.map(([label, value]) => `
+      <div>
+        <dt>${escapeHtml(label)}</dt>
+        <dd>${escapeHtml(value)}</dd>
+      </div>
+    `).join("");
+    ui.leaderboardDetail.hidden = false;
+    renderLeaderboardStatus(`${entry.alias}'s anonymous pilot card is open.`);
+  }
+
+  function hideLeaderboardDetail() {
+    if (!ui.leaderboardDetail) {
+      return;
+    }
+    ui.leaderboardDetail.hidden = true;
+    ui.leaderboardDetailStats.innerHTML = "";
   }
 
   function startDailyMission() {
@@ -2066,6 +2225,7 @@
     state.daily.submitted = false;
     state.daily.meta = meta;
     state.daily.alias = state.daily.alias || readDailyAlias();
+    state.daily.runStats = makeDailyRunStats();
     state.mode = "playing";
     state.stage = meta.stage;
     state.score = 0;
@@ -2097,6 +2257,7 @@
     ui.victoryCardPanel.hidden = true;
     meta.pilot.apply(state.loadout, state, player);
     setupLevel(meta.stage);
+    state.daily.runStats.blackHoles = level?.blackHoles?.length || 0;
     countPlayLaunch();
     renderPilotHud();
     setVictoryCard(null);
@@ -4584,6 +4745,9 @@
     state.cameraShake = Math.max(state.cameraShake, 0.25);
     if (boss.hp <= 0) {
       boss.hp = 0;
+      if (state.daily.active && state.daily.runStats) {
+        state.daily.runStats.bossDefeated = true;
+      }
       level.bossRockets = level.bossRockets.filter((rocket) => rocket.ownerId !== boss.uid);
       state.score += 450 + state.raceProgress * 60;
       state.messageTimer = 1.35;
@@ -4659,6 +4823,9 @@
   }
 
   function activateOverdriveCrystal() {
+    if (state.daily.active && state.daily.runStats) {
+      state.daily.runStats.overdriveUsed = true;
+    }
     player.overdriveTimer = OVERDRIVE_SECONDS;
     player.overdriveMax = OVERDRIVE_SECONDS;
     player.overdriveFlameTimer = 0;
@@ -9366,6 +9533,14 @@
   ui.closeDaily.addEventListener("click", closeDailyMissionPanel);
   ui.startDaily.addEventListener("click", startDailyMission);
   ui.refreshLeaders.addEventListener("click", () => loadMonthlyLeaderboard(todayDailyMission().monthKey));
+  ui.dailyLeaderboardList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-leaderboard-index]");
+    if (!button) {
+      return;
+    }
+    showLeaderboardDetail(Number(button.dataset.leaderboardIndex));
+  });
+  ui.closeLeaderboardDetail.addEventListener("click", hideLeaderboardDetail);
   ui.closeVictoryCard.addEventListener("click", closeVictoryCardPanel);
   ui.shareVictoryCard.addEventListener("click", shareVictoryCard);
   ui.downloadVictoryCard.addEventListener("click", downloadVictoryCard);

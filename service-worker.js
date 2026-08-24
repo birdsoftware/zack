@@ -1,4 +1,4 @@
-const CACHE_NAME = "star-maze-dodger-v2";
+const CACHE_NAME = "star-maze-dodger-v3";
 const APP_ASSETS = [
   "/",
   "/index.html",
