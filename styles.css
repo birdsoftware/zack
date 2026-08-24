@@ -3604,15 +3604,27 @@ canvas {
 
   #rescueMapCanvas {
     flex: 0 1 auto;
-    max-height: min(34vh, 260px);
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: min(31dvh, 240px);
+    aspect-ratio: 38 / 23;
+  }
+
+  .rescue-map-card {
+    gap: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .rescue-map-footer {
     flex: 0 0 auto;
+    margin-top: 8px;
   }
 
   .rescue-archive-controls {
     flex-wrap: wrap;
+    row-gap: 6px;
   }
 
   .ship-choices {
