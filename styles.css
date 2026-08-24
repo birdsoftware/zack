@@ -3605,10 +3605,13 @@ canvas {
   #rescueMapCanvas {
     flex: 0 1 auto;
     width: 100%;
+    max-width: 100%;
     height: auto;
+    justify-self: stretch;
     min-height: 0;
     max-height: min(31dvh, 240px);
     aspect-ratio: 38 / 23;
+    transform: none;
   }
 
   .rescue-map-card {
