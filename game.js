@@ -58,6 +58,7 @@
     aboutCounterNote: document.getElementById("aboutCounterNote"),
     moveStick: document.getElementById("moveStick"),
     moveStickKnob: document.getElementById("moveStickKnob"),
+    rescueCelebration: document.getElementById("rescueCelebration"),
   };
 
   const WIDTH = 960;
@@ -94,6 +95,9 @@
   const FRIEND_CHEER_MIN_DELAY = 8;
   const FRIEND_CHEER_MAX_DELAY = 16;
   const FRIEND_CHEER_DURATION = 4.2;
+  const BOSS_ENTRANCE_SECONDS = 1.55;
+  const PUZZLE_REVEAL_SECONDS = 2.4;
+  const RESCUE_CELEBRATION_MS = 3600;
   const AUTO_BOOST_HOLD_SECONDS = 0.5;
   const AUTO_BOOST_DIRECTION_DOT = 0.88;
   const SHIP_CRUMB_LIFE = 3;
@@ -168,6 +172,8 @@
     shareMapReady: false,
     shareMapFriend: "",
     shareMapWorld: "",
+    mapRevealPiece: -1,
+    mapRevealStart: 0,
   };
   const audience = {
     visits: bumpCounter(VISIT_KEY),
@@ -188,6 +194,7 @@
   let level = null;
   let player = null;
   let lastFrame = performance.now();
+  let rescueCelebrationTimeout = null;
 
   function Rng(seed) {
     this.seed = seed >>> 0;
@@ -969,6 +976,9 @@
     state.shareMapReady = false;
     state.shareMapFriend = "";
     state.shareMapWorld = "";
+    state.mapRevealPiece = -1;
+    state.mapRevealStart = 0;
+    hideRescueCelebration();
     hideUpgradePanel();
     ui.rescueMapPanel.hidden = true;
     ui.instructionsPanel.hidden = true;
@@ -1090,6 +1100,7 @@
       }));
 
     const wallStats = strengthenWalls(grid, wallHits, rng);
+    const wallMaxHealth = grid.map((row) => row.slice());
     const bosses = makeBosses(openCells, rng, challenge, stage);
     const boss = bosses[0] || null;
 
@@ -1106,6 +1117,7 @@
       bosses,
       wallHits,
       wallStats,
+      wallMaxHealth,
       bullets: [],
       bossRockets: [],
       stickyGoo: [],
@@ -1222,6 +1234,10 @@
       eye: archetype.eye,
       pulseSpeed: archetype.pulseSpeed,
       pulse: rng.next() * Math.PI * 2,
+      spawnTimer: BOSS_ENTRANCE_SECONDS + slot * 0.34,
+      spawnDuration: BOSS_ENTRANCE_SECONDS + slot * 0.34,
+      spawnSeed: rng.next() * Math.PI * 2,
+      spawnAnnounced: false,
       tentacleCount: archetype.tentacleCount || 0,
       tentacleCooldown: archetype.tentacleCooldown || 1.3,
       tentacleRange: archetype.tentacleRange || WORM_ARM_REACH_BLOCKS,
@@ -1820,7 +1836,7 @@
   }
 
   function activeBosses() {
-    return bossList().filter((boss) => boss && boss.hp > 0);
+    return bossList().filter((boss) => boss && boss.hp > 0 && (boss.spawnTimer || 0) <= 0);
   }
 
   function bossHasTentacles(boss) {
@@ -1835,7 +1851,39 @@
     if (state.mode !== "playing") {
       return;
     }
-    activeBosses().forEach((boss) => updateSingleBoss(boss, dt));
+    bossList().forEach((boss) => {
+      if (!boss || boss.hp <= 0) {
+        return;
+      }
+      if ((boss.spawnTimer || 0) > 0) {
+        updateBossEntrance(boss, dt);
+        return;
+      }
+      updateSingleBoss(boss, dt);
+    });
+  }
+
+  function updateBossEntrance(boss, dt) {
+    if (!boss.spawnAnnounced) {
+      boss.spawnAnnounced = true;
+      state.messageTimer = 1.1;
+      state.toast = `${boss.name} incoming`;
+      state.cameraShake = Math.max(state.cameraShake, 0.35);
+      ping("gravity");
+    }
+
+    const before = boss.spawnTimer;
+    boss.spawnTimer = Math.max(0, boss.spawnTimer - dt);
+    boss.pulse += dt * (boss.pulseSpeed + 1.7);
+    if (before > 0.18 && boss.spawnTimer <= 0.18) {
+      state.cameraShake = Math.max(state.cameraShake, 1.2);
+    }
+    if (before > 0 && boss.spawnTimer <= 0) {
+      addBurst(boss.x, boss.y, boss.accent || boss.color, 26);
+      state.messageTimer = 1.0;
+      state.toast = `${boss.name} warped in`;
+      ping("zap");
+    }
   }
 
   function updateSingleBoss(boss, dt) {
@@ -2638,9 +2686,15 @@
       age: 0,
       duration: FRIEND_CHEER_DURATION + Math.random() * 0.8,
       waveSeed: Math.random() * Math.PI * 2,
+      style: randomFriendCheerStyle(),
       message: randomFriendCheerMessage(),
     });
     ping("friendCheer");
+  }
+
+  function randomFriendCheerStyle() {
+    const styles = ["wave", "jump", "sign", "dance"];
+    return styles[Math.floor(Math.random() * styles.length)];
   }
 
   function randomFriendCheerMessage() {
@@ -2719,6 +2773,42 @@
         blackHole.driftVy *= -0.28;
       }
     }
+  }
+
+  function blackHoleStretchAt(x, y) {
+    if (!level?.blackHoles?.length) {
+      return null;
+    }
+
+    let strongest = null;
+    for (const blackHole of level.blackHoles) {
+      const dx = blackHole.x - x;
+      const dy = blackHole.y - y;
+      const distanceToHole = Math.hypot(dx, dy);
+      if (distanceToHole < 1 || distanceToHole > blackHole.pullRadius) {
+        continue;
+      }
+      const rangeFactor = 1 - distanceToHole / blackHole.pullRadius;
+      const strength = Math.min(1, rangeFactor * rangeFactor * 1.45);
+      if (!strongest || strength > strongest.strength) {
+        strongest = {
+          strength,
+          angle: Math.atan2(dy, dx),
+        };
+      }
+    }
+    return strongest;
+  }
+
+  function applyBlackHoleStretchLocal(x, y) {
+    const stretch = blackHoleStretchAt(x, y);
+    if (!stretch || stretch.strength <= 0.015) {
+      return;
+    }
+
+    ctx.rotate(stretch.angle);
+    ctx.scale(1 + stretch.strength * 0.34, 1 - stretch.strength * 0.13);
+    ctx.rotate(-stretch.angle);
   }
 
   function movePlayerThroughMaze(stepX, stepY) {
@@ -3250,15 +3340,21 @@
           robot.targetIndex += 1;
           robot.repairTarget = null;
           if (robot.targetIndex >= robot.targets.length) {
-            beginRepairRobotExit(robot);
+            beginRepairRobotSalute(robot);
           } else {
             robot.state = "walk";
           }
         }
+      } else if (robot.state === "salute") {
+        robot.timer -= dt;
+        if (robot.timer <= 0) {
+          beginRepairRobotExit(robot);
+        }
       } else if (robot.state === "leaving") {
         robot.timer -= dt;
-        robot.x += Math.cos(robot.exitAngle) * REPAIR_ROBOT_SPEED * 0.72 * dt;
-        robot.y += Math.sin(robot.exitAngle) * REPAIR_ROBOT_SPEED * 0.72 * dt;
+        const zoom = 1.18 + (1 - Math.max(0, robot.timer / 1.15)) * 0.88;
+        robot.x += Math.cos(robot.exitAngle) * REPAIR_ROBOT_SPEED * zoom * dt;
+        robot.y += Math.sin(robot.exitAngle) * REPAIR_ROBOT_SPEED * zoom * dt;
         robot.alpha = Math.max(0, robot.timer / 1.15);
         if (robot.timer <= 0) {
           level.repairRobots.splice(i, 1);
@@ -3292,6 +3388,9 @@
     }
 
     level.grid[target.r][target.c] = repairBlockHealth();
+    if (level.wallMaxHealth?.[target.r]) {
+      level.wallMaxHealth[target.r][target.c] = level.grid[target.r][target.c];
+    }
     target.repaired = true;
     addBurst(target.x, target.y, "#79f28e", 14);
     state.messageTimer = 0.8;
@@ -3301,6 +3400,18 @@
 
   function repairBlockHealth() {
     return Math.max(1, Math.min(3, level.wallHits || 1));
+  }
+
+  function beginRepairRobotSalute(robot) {
+    if (robot.state === "salute" || robot.state === "leaving") {
+      return;
+    }
+    robot.state = "salute";
+    robot.timer = 0.66;
+    robot.angle += Math.sin(robot.age) * 0.25;
+    state.messageTimer = 0.9;
+    state.toast = "Repair bot salutes";
+    ping("friendCheer");
   }
 
   function beginRepairRobotExit(robot) {
@@ -3666,6 +3777,7 @@
             ctx.fillRect(x + 3, y + 3, CELL - 6, 2);
             ctx.fillStyle = "rgba(0,0,0,0.3)";
             ctx.fillRect(x + 3, y + CELL - 5, CELL - 6, 2);
+            drawWallDamageCracks(c, r, x, y, hp);
           }
         } else {
           ctx.fillStyle = (c + r) % 2 === 0 ? "rgba(255,255,255,0.022)" : "rgba(255,255,255,0.012)";
@@ -3679,6 +3791,48 @@
     ctx.strokeStyle = "rgba(73,224,255,0.42)";
     ctx.lineWidth = 2;
     ctx.strokeRect(1, 1, COLS * CELL - 2, ROWS * CELL - 2);
+    ctx.restore();
+  }
+
+  function drawWallDamageCracks(c, r, x, y, hp) {
+    const maxHp = Math.max(hp, level.wallMaxHealth?.[r]?.[c] || level.wallHits || 1);
+    if (maxHp <= 1) {
+      return;
+    }
+    const damage = Math.max(0, Math.min(1, (maxHp - hp) / maxHp));
+    if (damage <= 0.05) {
+      return;
+    }
+
+    const seed = c * 19.37 + r * 31.91 + maxHp * 7.13;
+    const crackCount = Math.min(5, 1 + Math.floor(damage * 5));
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = `rgba(244, 247, 251, ${0.12 + damage * 0.34})`;
+    ctx.lineWidth = 0.9 + damage * 1.25;
+
+    for (let i = 0; i < crackCount; i += 1) {
+      const sx = x + 6 + hashNoise(seed + i * 4.1) * (CELL - 12);
+      const sy = y + 6 + hashNoise(seed + i * 5.7) * (CELL - 12);
+      const length = 7 + damage * 16 + hashNoise(seed + i * 8.6) * 8;
+      const angle = hashNoise(seed + i * 9.9) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      for (let step = 1; step <= 3; step += 1) {
+        const bend = (hashNoise(seed + i * 12.4 + step) - 0.5) * 0.92;
+        const t = step / 3;
+        ctx.lineTo(
+          sx + Math.cos(angle + bend) * length * t,
+          sy + Math.sin(angle + bend) * length * t
+        );
+      }
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = `rgba(73, 224, 255, ${0.06 + damage * 0.1})`;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 4, y + 4, CELL - 8, CELL - 8);
     ctx.restore();
   }
 
@@ -3862,6 +4016,16 @@
       ctx.arc(-6, -20, 2, 0, Math.PI * 2);
       ctx.fill();
 
+      if (robot.state === "leaving") {
+        const trailPulse = 0.5 + Math.sin(time * 0.035 + robot.age) * 0.5;
+        ctx.globalAlpha *= 0.82;
+        ctx.fillStyle = `rgba(73, 224, 255, ${0.28 + trailPulse * 0.24})`;
+        ctx.beginPath();
+        ctx.ellipse(-19, 0, 16 + trailPulse * 5, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = alpha;
+      }
+
       if (robot.state === "repair") {
         const spark = Math.sin(time * 0.036) * 3;
         ctx.strokeStyle = "#ffca4f";
@@ -3880,6 +4044,20 @@
           ctx.lineTo(18 + Math.cos(angle) * 6, spark + Math.sin(angle) * 6);
           ctx.stroke();
         }
+      } else if (robot.state === "salute") {
+        const salute = smoothStep01(Math.min(1, (0.66 - robot.timer) / 0.22));
+        ctx.strokeStyle = "#ffca4f";
+        ctx.lineWidth = 2.6;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(9, -3);
+        ctx.lineTo(16, -8 - salute * 8);
+        ctx.lineTo(19, -11 - salute * 8);
+        ctx.stroke();
+        ctx.fillStyle = "#ffca4f";
+        ctx.beginPath();
+        ctx.arc(21, -13 - salute * 8, 2.2 + Math.sin(time * 0.026) * 0.5, 0, Math.PI * 2);
+        ctx.fill();
       }
 
       ctx.restore();
@@ -3958,6 +4136,17 @@
     return x - Math.floor(x);
   }
 
+  function colorWithAlpha(color, alpha) {
+    const hex = String(color || "").replace("#", "");
+    if (hex.length !== 6) {
+      return color;
+    }
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
+  }
+
   function drawRepairPatch(robot, time, alpha) {
     const target = robot.repairTarget;
     const progress = 1 - Math.max(0, robot.timer / REPAIR_ROBOT_BUILD_TIME);
@@ -3985,6 +4174,30 @@
       ctx.beginPath();
       ctx.arc(sx, sy, 1.2 + flicker * 0.8, 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    const targetX = x + CELL / 2;
+    const targetY = y + CELL / 2;
+    const toolAngle = Math.atan2(targetY - robot.y, targetX - robot.x);
+    const toolX = robot.x + Math.cos(toolAngle) * 18;
+    const toolY = robot.y + Math.sin(toolAngle) * 18;
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = `rgba(244, 247, 251, ${0.58 + flicker * 0.28})`;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(toolX, toolY);
+    ctx.lineTo(targetX + (Math.random() - 0.5) * 6, targetY + (Math.random() - 0.5) * 6);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(73, 224, 255, 0.62)";
+    ctx.lineWidth = 1.1;
+    for (let i = 0; i < 5; i += 1) {
+      const angle = toolAngle + Math.PI + (Math.random() - 0.5) * 1.4;
+      const length = 8 + Math.random() * 13;
+      ctx.beginPath();
+      ctx.moveTo(targetX, targetY);
+      ctx.lineTo(targetX + Math.cos(angle) * length, targetY + Math.sin(angle) * length);
+      ctx.stroke();
     }
     ctx.restore();
   }
@@ -4080,6 +4293,7 @@
       const palette = ["#49e0ff", "#ffca4f", "#ff5aa7"];
       ctx.save();
       ctx.translate(core.x, core.y);
+      applyBlackHoleStretchLocal(core.x, core.y);
       ctx.rotate(core.spin + time * 0.003);
       ctx.fillStyle = palette[core.tone];
       ctx.globalAlpha = 0.24;
@@ -4110,6 +4324,7 @@
       const pulse = 0.5 + Math.sin(time * 0.007 + boost.x) * 0.5;
       ctx.save();
       ctx.translate(boost.x, boost.y);
+      applyBlackHoleStretchLocal(boost.x, boost.y);
       ctx.strokeStyle = "#ffca4f";
       ctx.lineWidth = 2;
       ctx.globalAlpha = 0.7;
@@ -4132,6 +4347,7 @@
     const color = overdriveColor(time, crystal.hue);
     ctx.save();
     ctx.translate(crystal.x, crystal.y);
+    applyBlackHoleStretchLocal(crystal.x, crystal.y);
     ctx.rotate(crystal.spin + time * 0.0026);
     ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = 0.18 + pulse * 0.18;
@@ -4180,6 +4396,7 @@
     for (const sentry of level.sentries) {
       ctx.save();
       ctx.translate(sentry.x, sentry.y);
+      applyBlackHoleStretchLocal(sentry.x, sentry.y);
       ctx.rotate(sentry.spin + time * 0.001);
       ctx.strokeStyle = sentry.color;
       ctx.lineWidth = 3;
@@ -4204,7 +4421,85 @@
   }
 
   function drawBoss(time) {
-    activeBosses().forEach((boss) => drawSingleBoss(boss, time));
+    bossList().forEach((boss) => {
+      if (!boss || boss.hp <= 0) {
+        return;
+      }
+      if ((boss.spawnTimer || 0) > 0) {
+        drawBossEntrance(boss, time);
+      } else {
+        drawSingleBoss(boss, time);
+      }
+    });
+  }
+
+  function drawBossEntrance(boss, time) {
+    const duration = boss.spawnDuration || BOSS_ENTRANCE_SECONDS;
+    const progress = smoothStep01(1 - Math.max(0, boss.spawnTimer || 0) / duration);
+    const flash = 0.5 + Math.sin(time * 0.033 + boss.spawnSeed) * 0.5;
+    const ringPulse = 0.5 + Math.sin(time * 0.018 + boss.spawnSeed) * 0.5;
+
+    ctx.save();
+    ctx.translate(boss.x, boss.y);
+    applyBlackHoleStretchLocal(boss.x, boss.y);
+    ctx.globalCompositeOperation = "lighter";
+
+    ctx.strokeStyle = `rgba(255, 202, 79, ${0.38 + flash * 0.36})`;
+    ctx.lineWidth = 2.4;
+    ctx.setLineDash([9, 6]);
+    for (let i = 0; i < 3; i += 1) {
+      const radius = boss.r + 10 + i * 13 + ringPulse * 8 - progress * i * 7;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, time * 0.002 + i, Math.PI * 1.75 + time * 0.002 + i);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    const column = ctx.createRadialGradient(0, 0, 4, 0, 0, boss.r + 42);
+    column.addColorStop(0, `rgba(244, 247, 251, ${0.36 + progress * 0.28})`);
+    column.addColorStop(0.3, colorWithAlpha(boss.accent || "#49e0ff", 0.32 + flash * 0.22));
+    column.addColorStop(1, "rgba(73, 224, 255, 0)");
+    ctx.fillStyle = column;
+    ctx.beginPath();
+    ctx.arc(0, 0, boss.r + 42, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = colorWithAlpha(boss.color || "#ff5aa7", 0.52 + progress * 0.32);
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 5; i += 1) {
+      const angle = boss.spawnSeed + i * 1.256 + time * 0.0015;
+      const inner = boss.r * 0.45 + progress * 12;
+      const outer = boss.r + 30 - progress * 13;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+      ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+      ctx.stroke();
+    }
+
+    if (progress > 0.34) {
+      const bossAlpha = Math.min(1, (progress - 0.34) / 0.66);
+      ctx.globalAlpha = bossAlpha;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.rotate(time * 0.0016 + Math.sin(boss.pulse) * 0.06);
+      const scale = 0.34 + progress * 0.76 + flash * 0.035;
+      ctx.scale(scale, scale);
+      drawBossGlow(boss, flash);
+      ctx.globalAlpha = bossAlpha;
+      if (boss.shape === "crusher") {
+        drawCrusherBoss(boss, flash);
+      } else if (boss.shape === "stalker") {
+        drawStalkerBoss(boss, flash);
+      } else if (boss.shape === "maw") {
+        drawMawBoss(boss, flash);
+      } else if (boss.shape === "caster") {
+        drawCasterBoss(boss, flash);
+      } else if (boss.shape === "worm") {
+        drawWormBoss(boss, flash);
+      } else if (boss.shape === "hybrid") {
+        drawHybridBoss(boss, flash);
+      }
+    }
+    ctx.restore();
   }
 
   function drawSingleBoss(boss, time) {
@@ -4215,6 +4510,7 @@
 
     ctx.save();
     ctx.translate(boss.x, boss.y);
+    applyBlackHoleStretchLocal(boss.x, boss.y);
     drawBossGlow(boss, pulse);
     ctx.rotate(time * 0.0016 + Math.sin(boss.pulse) * 0.06);
     if (boss.shape === "crusher") {
@@ -4619,6 +4915,7 @@
       }
       const angle = Math.atan2(rocket.vy, rocket.vx);
       ctx.translate(rocket.x, rocket.y);
+      applyBlackHoleStretchLocal(rocket.x, rocket.y);
       ctx.rotate(angle);
       ctx.globalAlpha = 0.26;
       ctx.fillStyle = rocket.color || "#ff5aa7";
@@ -4646,6 +4943,7 @@
     for (const bullet of level.bullets) {
       ctx.save();
       ctx.translate(bullet.x, bullet.y);
+      applyBlackHoleStretchLocal(bullet.x, bullet.y);
       if (bullet.flame) {
         ctx.rotate(bullet.angle || Math.atan2(bullet.vy, bullet.vx));
         ctx.globalCompositeOperation = "lighter";
@@ -4721,6 +5019,7 @@
 
     ctx.save();
     ctx.translate(player.x, player.y);
+    applyBlackHoleStretchLocal(player.x, player.y);
     ctx.rotate(player.angle);
     const flicker = player.invulnerable > 0 && Math.floor(time / 90) % 2 === 0;
     ctx.globalAlpha = flicker ? 0.52 : 1;
@@ -5141,19 +5440,27 @@
       return;
     }
 
-    const x = cheer.fromX + (cheer.toX - cheer.fromX) * visibility;
-    const y = cheer.fromY + (cheer.toY - cheer.fromY) * visibility + Math.sin(time * 0.01 + cheer.waveSeed) * 2;
+    const dance = cheer.style === "dance" ? Math.sin(time * 0.018 + cheer.waveSeed) * 5 : 0;
+    const jump = cheer.style === "jump" ? Math.abs(Math.sin(time * 0.012 + cheer.waveSeed)) * 13 : 0;
+    const x = cheer.fromX + (cheer.toX - cheer.fromX) * visibility + dance;
+    const y = cheer.fromY + (cheer.toY - cheer.fromY) * visibility + Math.sin(time * 0.01 + cheer.waveSeed) * 2 - jump;
     const facing = cheer.side === "right" ? -1 : 1;
-    drawCheerBubble(x, y, cheer.message, cheer.friend.color, facing, visibility);
-    drawCheerFriendBody(x, y, cheer.friend, facing, visibility, time, cheer.waveSeed);
+    if (cheer.style === "sign") {
+      drawCheerSign(x, y, cheer.message, cheer.friend.color, facing, visibility, time);
+    } else {
+      drawCheerBubble(x, y, cheer.message, cheer.friend.color, facing, visibility);
+    }
+    drawCheerFriendBody(x, y, cheer.friend, facing, visibility, time, cheer.waveSeed, cheer.style);
   }
 
-  function drawCheerFriendBody(x, y, friend, facing, visibility, time, seed) {
+  function drawCheerFriendBody(x, y, friend, facing, visibility, time, seed, style = "wave") {
     const wave = Math.sin(time * 0.015 + seed);
+    const dance = style === "dance" ? Math.sin(time * 0.035 + seed) : 0;
     ctx.save();
     ctx.globalAlpha = visibility;
     ctx.translate(x, y);
     ctx.scale(facing, 1);
+    ctx.rotate(dance * 0.12);
 
     ctx.fillStyle = "rgba(0, 0, 0, 0.34)";
     ctx.beginPath();
@@ -5164,10 +5471,22 @@
     ctx.lineWidth = 3;
     ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(-7, 4);
-    ctx.quadraticCurveTo(-17, -2 - wave * 5, -12, -11 - Math.max(0, wave) * 4);
-    ctx.moveTo(7, 4);
-    ctx.quadraticCurveTo(15, 8, 19, 1 + wave * 2);
+    if (style === "sign") {
+      ctx.moveTo(-7, 3);
+      ctx.quadraticCurveTo(-14, -7, -18, -20);
+      ctx.moveTo(7, 3);
+      ctx.quadraticCurveTo(14, -7, 18, -20);
+    } else if (style === "dance") {
+      ctx.moveTo(-7, 4);
+      ctx.quadraticCurveTo(-18, -2 - wave * 8, -18, 8 + dance * 4);
+      ctx.moveTo(7, 4);
+      ctx.quadraticCurveTo(18, -4 + wave * 8, 18, 8 - dance * 4);
+    } else {
+      ctx.moveTo(-7, 4);
+      ctx.quadraticCurveTo(-17, -2 - wave * 5, -12, -11 - Math.max(0, wave) * 4);
+      ctx.moveTo(7, 4);
+      ctx.quadraticCurveTo(15, 8, 19, 1 + wave * 2);
+    }
     ctx.stroke();
 
     const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, 20);
@@ -5207,6 +5526,35 @@
     ctx.beginPath();
     ctx.arc(-6, -17, 2.3 + Math.max(0, wave) * 0.9, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }
+
+  function drawCheerSign(x, y, text, color, facing, visibility, time) {
+    ctx.save();
+    ctx.globalAlpha = visibility;
+    const wobble = Math.sin(time * 0.012 + x) * 0.08;
+    ctx.translate(x + facing * 2, y - 35);
+    ctx.rotate(wobble);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-16, 14);
+    ctx.lineTo(-18, 35);
+    ctx.moveTo(16, 14);
+    ctx.lineTo(18, 35);
+    ctx.stroke();
+
+    ctx.font = "900 12px system-ui, sans-serif";
+    const width = Math.max(50, ctx.measureText(text).width + 20);
+    ctx.fillStyle = "rgba(5, 10, 15, 0.9)";
+    roundRect(-width / 2, -12, width, 25, 6);
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    ctx.fillStyle = "#f4f7fb";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 0, 1);
     ctx.restore();
   }
 
@@ -5606,7 +5954,12 @@
   }
 
   function revealPuzzlePiece(count) {
+    const previousPieces = state.puzzlePieces;
     state.puzzlePieces = Math.min(MAX_LEVELS, Math.max(state.puzzlePieces, count));
+    if (state.puzzlePieces > previousPieces) {
+      state.mapRevealPiece = state.puzzlePieces - 1;
+      state.mapRevealStart = performance.now();
+    }
     state.mapView = "current";
     state.messageTimer = 1.2;
     state.toast = `Puzzle piece ${state.puzzlePieces}/${MAX_LEVELS}`;
@@ -5627,6 +5980,57 @@
     state.messageTimer = 1.6;
     state.toast = `${friend?.name || "Friend"} rescued`;
     renderPilotHud();
+    showRescueCelebration(friend);
+  }
+
+  function showRescueCelebration(friend) {
+    if (!ui.rescueCelebration || !friend) {
+      return;
+    }
+
+    if (typeof window.clearTimeout === "function") {
+      window.clearTimeout(rescueCelebrationTimeout);
+    }
+    if (typeof ui.rescueCelebration.style.setProperty === "function") {
+      ui.rescueCelebration.style.setProperty("--friend-color", friend.color || "#ffca4f");
+    } else {
+      ui.rescueCelebration.style["--friend-color"] = friend.color || "#ffca4f";
+    }
+    ui.rescueCelebration.innerHTML = `
+      <div class="rescue-celebration-card">
+        <span class="rescue-celebration-spark spark-a"></span>
+        <span class="rescue-celebration-spark spark-b"></span>
+        <span class="rescue-celebration-spark spark-c"></span>
+        <span class="rescue-friend-walker" aria-hidden="true">
+          <span class="walker-head"></span>
+          <span class="walker-body"></span>
+          <span class="walker-arm left"></span>
+          <span class="walker-arm right"></span>
+          <span class="walker-leg left"></span>
+          <span class="walker-leg right"></span>
+        </span>
+        <span class="rescue-celebration-copy">
+          <strong>${friend.name} rescued!</strong>
+          <span>Walking into the avatar crew bar.</span>
+        </span>
+      </div>
+    `;
+    ui.rescueCelebration.hidden = false;
+    rescueCelebrationTimeout = typeof window.setTimeout === "function"
+      ? window.setTimeout(hideRescueCelebration, RESCUE_CELEBRATION_MS)
+      : null;
+  }
+
+  function hideRescueCelebration() {
+    if (rescueCelebrationTimeout && typeof window.clearTimeout === "function") {
+      window.clearTimeout(rescueCelebrationTimeout);
+      rescueCelebrationTimeout = null;
+    }
+    if (!ui.rescueCelebration) {
+      return;
+    }
+    ui.rescueCelebration.hidden = true;
+    ui.rescueCelebration.innerHTML = "";
   }
 
   function startNextPuzzle() {
@@ -5698,7 +6102,7 @@
     updateHud();
   }
 
-  function renderRescueMap() {
+  function renderRescueMap(time = performance.now()) {
     clampArchiveIndex();
     const canvas = ui.rescueMapCanvas;
     const w = canvas.width;
@@ -5735,6 +6139,13 @@
       mapCtx.strokeStyle = i < displayedPieces ? "rgba(255, 202, 79, 0.9)" : "rgba(244, 247, 251, 0.42)";
       mapCtx.stroke();
       mapCtx.restore();
+    }
+
+    if (!viewingArchive && state.mapRevealPiece >= 0 && state.mapRevealPiece < displayedPieces) {
+      const elapsed = (time - state.mapRevealStart) / 1000;
+      if (elapsed >= 0 && elapsed < PUZZLE_REVEAL_SECONDS) {
+        drawPuzzleRevealSparkle(state.mapRevealPiece, w, h, elapsed / PUZZLE_REVEAL_SECONDS, time);
+      }
     }
 
     if (displayedPieces === 0) {
@@ -5778,6 +6189,55 @@
       : `${state.puzzlePieces}/${MAX_LEVELS} pieces • ${state.raceProgress}/${FRIENDS_PER_RACE} friends • ${totalMissions}/${TOTAL_MISSIONS} missions`;
     updateMapShareButton(displayedPieces >= MAX_LEVELS, displayedFriend, displayedWorld);
     renderArchiveControls(viewingArchive);
+  }
+
+  function rescueMapRevealActive(time) {
+    if (!ui.rescueMapPanel || ui.rescueMapPanel.hidden || state.mapRevealPiece < 0) {
+      return false;
+    }
+    return time - state.mapRevealStart < PUZZLE_REVEAL_SECONDS * 1000;
+  }
+
+  function drawPuzzleRevealSparkle(index, w, h, progress, time) {
+    const pieceWidth = w / MAX_LEVELS;
+    const x = index * pieceWidth;
+    const scanX = x + pieceWidth * smoothStep01(Math.min(1, progress * 1.18));
+    const fade = Math.max(0, 1 - progress);
+
+    mapCtx.save();
+    drawPuzzlePiecePath(index, w, h);
+    mapCtx.clip();
+    mapCtx.globalCompositeOperation = "lighter";
+
+    const scan = mapCtx.createLinearGradient(scanX - 28, 0, scanX + 28, 0);
+    scan.addColorStop(0, "rgba(73, 224, 255, 0)");
+    scan.addColorStop(0.45, `rgba(244, 247, 251, ${0.26 + fade * 0.28})`);
+    scan.addColorStop(0.55, `rgba(255, 202, 79, ${0.34 + fade * 0.28})`);
+    scan.addColorStop(1, "rgba(121, 242, 142, 0)");
+    mapCtx.fillStyle = scan;
+    mapCtx.fillRect(scanX - 30, 0, 60, h);
+
+    mapCtx.lineWidth = 5 - progress * 2;
+    mapCtx.strokeStyle = `rgba(255, 202, 79, ${0.72 * fade})`;
+    drawPuzzlePiecePath(index, w, h);
+    mapCtx.stroke();
+
+    for (let i = 0; i < 42; i += 1) {
+      const seed = index * 71.7 + i * 13.1;
+      const particleProgress = (progress * 1.2 + hashNoise(seed) * 0.34) % 1;
+      const px = x + hashNoise(seed + 1.4) * pieceWidth;
+      const py = hashNoise(seed + 2.8) * h;
+      const drift = Math.sin(time * 0.006 + seed) * 8 * fade;
+      const size = 1.2 + hashNoise(seed + 4.2) * 3.2;
+      const alpha = Math.max(0, Math.sin(particleProgress * Math.PI) * fade);
+      mapCtx.globalAlpha = alpha;
+      mapCtx.fillStyle = i % 3 === 0 ? "#ffca4f" : i % 3 === 1 ? "#49e0ff" : "#79f28e";
+      mapCtx.beginPath();
+      mapCtx.arc(px + drift, py - progress * 18, size, 0, Math.PI * 2);
+      mapCtx.fill();
+    }
+
+    mapCtx.restore();
   }
 
   function updateMapShareButton(ready, friend, world) {
@@ -7030,6 +7490,9 @@
     lastFrame = now;
     if (state.mode === "playing") {
       update(dt);
+    }
+    if (rescueMapRevealActive(now)) {
+      renderRescueMap(now);
     }
     render(now);
     requestAnimationFrame(loop);

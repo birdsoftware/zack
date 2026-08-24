@@ -275,6 +275,250 @@ canvas {
   touch-action: none;
 }
 
+.rescue-celebration[hidden] {
+  display: none;
+}
+
+.rescue-celebration {
+  --friend-color: var(--amber);
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.rescue-celebration-card {
+  --rescue-walk-x: calc(50vw - 50px);
+  --rescue-walk-y: calc(-48vh + 46px);
+  position: absolute;
+  left: 50%;
+  top: min(48vh, 430px);
+  width: min(420px, calc(100vw - 28px));
+  min-height: 84px;
+  padding: 14px 18px 14px 84px;
+  border: 1px solid color-mix(in srgb, var(--friend-color) 62%, rgba(255, 255, 255, 0.28));
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 18% 28%, color-mix(in srgb, var(--friend-color) 26%, transparent), transparent 36%),
+    rgba(7, 12, 18, 0.92);
+  box-shadow: 0 0 36px color-mix(in srgb, var(--friend-color) 26%, transparent), 0 24px 70px rgba(0, 0, 0, 0.52);
+  transform: translateX(-50%);
+  animation: rescue-card-pop 3.55s ease-in-out forwards;
+}
+
+.rescue-celebration-copy strong,
+.rescue-celebration-copy span {
+  display: block;
+}
+
+.rescue-celebration-copy strong {
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.rescue-celebration-copy span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.rescue-friend-walker,
+.rescue-friend-walker span,
+.rescue-celebration-spark {
+  position: absolute;
+  display: block;
+}
+
+.rescue-friend-walker {
+  left: 28px;
+  top: 25px;
+  width: 34px;
+  height: 46px;
+  animation: rescue-friend-walk 3.35s cubic-bezier(0.35, 0.02, 0.2, 1) forwards;
+  transform-origin: 50% 100%;
+}
+
+.walker-head {
+  left: 8px;
+  top: 0;
+  width: 18px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--friend-color);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--friend-color) 60%, transparent);
+}
+
+.walker-head::before,
+.walker-head::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #05070b;
+}
+
+.walker-head::before {
+  left: 5px;
+}
+
+.walker-head::after {
+  right: 5px;
+}
+
+.walker-body {
+  left: 9px;
+  top: 16px;
+  width: 16px;
+  height: 22px;
+  border-radius: 8px 8px 6px 6px;
+  background: rgba(5, 10, 15, 0.92);
+  border: 2px solid var(--friend-color);
+}
+
+.walker-arm,
+.walker-leg {
+  width: 4px;
+  border-radius: 999px;
+  background: var(--friend-color);
+  transform-origin: 50% 0;
+}
+
+.walker-arm {
+  top: 18px;
+  height: 18px;
+  animation: walker-arm-swing 0.42s ease-in-out infinite alternate;
+}
+
+.walker-arm.left {
+  left: 5px;
+}
+
+.walker-arm.right {
+  right: 5px;
+  animation-delay: -0.21s;
+}
+
+.walker-leg {
+  top: 36px;
+  height: 14px;
+  animation: walker-leg-step 0.42s ease-in-out infinite alternate;
+}
+
+.walker-leg.left {
+  left: 12px;
+}
+
+.walker-leg.right {
+  right: 12px;
+  animation-delay: -0.21s;
+}
+
+.rescue-celebration-spark {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--friend-color);
+  box-shadow: 0 0 14px var(--friend-color);
+  animation: rescue-spark-float 1.4s ease-in-out infinite;
+}
+
+.rescue-celebration-spark.spark-a {
+  left: 20%;
+  top: 24%;
+}
+
+.rescue-celebration-spark.spark-b {
+  right: 23%;
+  top: 18%;
+  animation-delay: -0.4s;
+}
+
+.rescue-celebration-spark.spark-c {
+  left: 48%;
+  bottom: 18%;
+  animation-delay: -0.8s;
+}
+
+@keyframes rescue-card-pop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(16px) scale(0.94);
+  }
+
+  12%,
+  82% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px) scale(0.98);
+  }
+}
+
+@keyframes rescue-friend-walk {
+  0% {
+    transform: translate(0, 8px) scale(0.86);
+  }
+
+  50% {
+    transform: translate(122px, -8px) scale(1);
+  }
+
+  100% {
+    transform: translate(var(--rescue-walk-x), var(--rescue-walk-y)) scale(0.46);
+    opacity: 0.1;
+  }
+}
+
+@keyframes walker-arm-swing {
+  from {
+    rotate: -22deg;
+  }
+
+  to {
+    rotate: 28deg;
+  }
+}
+
+@keyframes walker-leg-step {
+  from {
+    rotate: 22deg;
+  }
+
+  to {
+    rotate: -22deg;
+  }
+}
+
+@keyframes rescue-spark-float {
+  0%,
+  100% {
+    opacity: 0.35;
+    scale: 0.8;
+    translate: 0 0;
+  }
+
+  50% {
+    opacity: 0.95;
+    scale: 1.25;
+    translate: 0 -9px;
+  }
+}
+
+@media (max-width: 720px) {
+  .rescue-celebration-card {
+    --rescue-walk-x: calc(78vw - 62px);
+    --rescue-walk-y: calc(-45vh + 40px);
+  }
+}
+
 .pilot-hud[hidden] {
   display: none;
 }
@@ -442,6 +686,67 @@ canvas {
 
 .pilot-card {
   width: min(820px, 100%);
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(73, 224, 255, 0.11), transparent 24%),
+    radial-gradient(circle at 85% 20%, rgba(255, 202, 79, 0.1), transparent 26%),
+    rgba(13, 17, 22, 0.92);
+}
+
+.pilot-card::before,
+.pilot-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pilot-card::before {
+  opacity: 0.5;
+  background:
+    radial-gradient(circle at 8% 18%, rgba(244, 247, 251, 0.72) 0 1px, transparent 2px),
+    radial-gradient(circle at 24% 64%, rgba(73, 224, 255, 0.7) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 58% 22%, rgba(255, 202, 79, 0.72) 0 1px, transparent 2px),
+    radial-gradient(circle at 82% 72%, rgba(121, 242, 142, 0.58) 0 1.3px, transparent 2.4px);
+  background-size: 220px 150px, 280px 190px, 250px 170px, 310px 210px;
+  animation: pilot-menu-stars 18s linear infinite;
+}
+
+.pilot-card::after {
+  opacity: 0.32;
+  background:
+    linear-gradient(110deg, transparent 0 45%, rgba(73, 224, 255, 0.54) 46% 47%, transparent 48%),
+    radial-gradient(ellipse at 82% 38%, rgba(255, 90, 167, 0.26) 0 8px, transparent 9px),
+    radial-gradient(ellipse at 88% 39%, rgba(255, 90, 167, 0.18) 0 18px, transparent 19px),
+    radial-gradient(ellipse at 14% 76%, rgba(121, 242, 142, 0.22) 0 12px, transparent 13px);
+  background-size: 420px 100%, 260px 160px, 260px 160px, 360px 220px;
+  animation: pilot-menu-life 12s ease-in-out infinite alternate;
+}
+
+.pilot-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes pilot-menu-stars {
+  from {
+    background-position: 0 0, 80px 20px, 120px 50px, 40px 80px;
+  }
+
+  to {
+    background-position: -220px 80px, -200px 90px, -130px 120px, -270px 160px;
+  }
+}
+
+@keyframes pilot-menu-life {
+  from {
+    background-position: 0 0, 120% 30%, 120% 30%, -12% 78%;
+  }
+
+  to {
+    background-position: -180px 0, 68% 36%, 68% 36%, 22% 72%;
+  }
 }
 
 .instructions-card {
@@ -1557,7 +1862,14 @@ canvas {
   .avatar-mouth,
   .avatar-mark,
   .avatar-sigil,
-  .avatar-blade {
+  .avatar-blade,
+  .pilot-card::before,
+  .pilot-card::after,
+  .rescue-celebration-card,
+  .rescue-friend-walker,
+  .walker-arm,
+  .walker-leg,
+  .rescue-celebration-spark {
     animation: none !important;
   }
 }
